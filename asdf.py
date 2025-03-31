@@ -2,48 +2,39 @@ import spatialmath as sm
 from spatialmath.base import *
 import numpy as np
 import matplotlib.pyplot as plt
+
 from time import sleep
 
 
-def plot_coordinate_frame_from_quaternion(input: sm.UnitQuaternion):
-    """
-    Uses matplotlib to plot a moving coordinate frame against the original one in 3D in real time.
-
-    Parameters:
-    - input (sm.UnitQuaternion): The quaternion representing the orientation of the moving coordinate frame.
-
-    Returns:
-    - None
-    """
-
-    plt.ion()
-    # Create a 3D plot
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Define the original coordinate frame
+def visualize_orientation_animation(quaternion, deltaT):
+    # Clear the axes to redraw the updated frame.
+    ax.clear()
+    
+    # Define the original coordinate frame axes.
     origin = np.array([0, 0, 0])
     x_axis = np.array([1, 0, 0])
     y_axis = np.array([0, 1, 0])
     z_axis = np.array([0, 0, 1])
-
-    # Plot the original coordinate frame
-    ax.quiver(*origin, *x_axis, color='r', label='Original X-axis')
-    ax.quiver(*origin, *y_axis, color='g', label='Original Y-axis')
-    ax.quiver(*origin, *z_axis, color='b', label='Original Z-axis')
-
-    # Transform the coordinate frame using the quaternion
-    rotation_matrix = input.R
-    transformed_x = rotation_matrix @ x_axis
-    transformed_y = rotation_matrix @ y_axis
-    transformed_z = rotation_matrix @ z_axis
-
-    # Plot the transformed coordinate frame
-    ax.quiver(*origin, *transformed_x, color='m', label='Transformed X-axis')
-    ax.quiver(*origin, *transformed_y, color='y', label='Transformed Y-axis')
-    ax.quiver(*origin, *transformed_z, color='c', label='Transformed Z-axis')
-
-    # Set plot limits and labels
+    
+    # Plot the original coordinate frame.
+    ax.quiver(*origin, *x_axis, color='r', label='Original X')
+    ax.quiver(*origin, *y_axis, color='g', label='Original Y')
+    ax.quiver(*origin, *z_axis, color='b', label='Original Z')
+    
+    # Get the rotation matrix from the updated quaternion.
+    R = quaternion.R
+    
+    # Compute the transformed axes.
+    transformed_x = R @ x_axis
+    transformed_y = R @ y_axis
+    transformed_z = R @ z_axis
+    
+    # Plot the transformed coordinate frame.
+    ax.quiver(*origin, *transformed_x, color='r', label='Transformed X')
+    ax.quiver(*origin, *transformed_y, color='g', label='Transformed Y')
+    ax.quiver(*origin, *transformed_z, color='b', label='Transformed Z')
+    
+    # Set the axis limits and labels.
     ax.set_xlim([-1.5, 1.5])
     ax.set_ylim([-1.5, 1.5])
     ax.set_zlim([-1.5, 1.5])
@@ -51,8 +42,10 @@ def plot_coordinate_frame_from_quaternion(input: sm.UnitQuaternion):
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
     ax.legend()
-    plt.show()
-
+    
+    # Draw the updated plot and pause briefly.
+    plt.draw()
+    plt.pause(deltaT) 
 
 
 
@@ -84,10 +77,14 @@ from mpl_toolkits.mplot3d import Axes3D
 deltaT = .001
 quaternion = sm.UnitQuaternion()
 input_data = generate_body_angular_velocities(deltaT)
+
+plt.ion()
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+
 for time, wx, wy, wz in input_data:   
     quaternion = updateQuaternion(quaternion, np.array([wx, wy, wz]).reshape(3,1), deltaT)
-
-final_quaternion = sm.UnitQuaternion()
-final_quaternion.data = [np.array(quaternion).reshape(1,4)]
-final_quaternion.animate()
-input()
+    final_quaternion = sm.UnitQuaternion()
+    final_quaternion.data = [np.array(quaternion).reshape(1,4)]
+    visualize_orientation_animation(final_quaternion, deltaT)
