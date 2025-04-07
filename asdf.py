@@ -74,7 +74,7 @@ def updateQuaternion(original: sm.UnitQuaternion, bodyAngularVelocity: np.ndarra
 
 from q1createinputs import generate_body_angular_velocities
 from mpl_toolkits.mplot3d import Axes3D
-deltaT = .001
+deltaT = .01
 quaternion = sm.UnitQuaternion()
 input_data = generate_body_angular_velocities(deltaT)
 
@@ -85,6 +85,22 @@ ax = fig.add_subplot(111, projection='3d')
 
 for time, wx, wy, wz in input_data:   
     quaternion = updateQuaternion(quaternion, np.array([wx, wy, wz]).reshape(3,1), deltaT)
-    final_quaternion = sm.UnitQuaternion()
-    final_quaternion.data = [np.array(quaternion).reshape(1,4)]
-    visualize_orientation_animation(final_quaternion, deltaT)
+    # final_quaternion = sm.UnitQuaternion()
+    # final_quaternion.data = [np.array(quaternion).reshape(1,4)]
+    # visualize_orientation_animation(final_quaternion, deltaT)
+
+
+one = sm.SO3.Rx(np.pi/4)
+two = sm.SO3.Rz(np.pi/4)
+three = sm.SO3.Rx(-np.pi/4)
+four = sm.SO3.Rz(-np.pi/4)
+
+
+final_quaternion = sm.UnitQuaternion()
+correct_quaternion = sm.UnitQuaternion()
+correct_quaternion.data = [np.array(r2q(np.array(one @ two @ three @ four))).reshape(1,4)]
+
+final_quaternion.data = [np.array(quaternion).reshape(1,4)]
+visualize_orientation_animation(final_quaternion, deltaT)
+print("Correct answer: " + str(correct_quaternion))
+print("Our Answer: " + str(final_quaternion))
