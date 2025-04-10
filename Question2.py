@@ -223,23 +223,23 @@ for index, row in data.iterrows():
 
     m_corrected_array.append(m_corrected.copy())  #TEMP
 
-    #vvv --------------------------------------- Not Used --------------------------------------- vvv#
-    # Calculate dynamic km and ka gains based on gaussian curve
-    # compute sensor norms
-    a_norm = np.linalg.norm(a)
-    m_norm = np.linalg.norm(m_corrected)
-    # Compute confidence measures (example using a Gaussian function)
-    sigma_a = 0.0677649323574827  # adjusted based on expected variation
-    sigma_m = 0.1466190886315767 # adjusted based on expected variation in µT
-    # Confidence measures for accelerometer and magnetometer based on guassian distribution
-    conf_acc = np.exp(-((a_norm - 9.81)**2) / (2 * sigma_a**2))
-    conf_mag = np.exp(-((m_norm - expected_mag)**2) / (2 * sigma_m**2))
-    # Scale the nominal gains dynamically
-    ka_dynamic = ka_nominal * conf_acc
-    km_dynamic = km_nominal * conf_mag
-    ka_dynamic_list.append(ka_dynamic)  #TEMP for graphing
-    km_dynamic_list.append(km_dynamic)  #TEMP for graphing
-    #^^^ --------------------------------------- Not Used --------------------------------------- ^^^#
+    # #vvv --------------------------------------- Not Used --------------------------------------- vvv#
+    # # Calculate dynamic km and ka gains based on gaussian curve
+    # # compute sensor norms
+    # a_norm = np.linalg.norm(a)
+    # m_norm = np.linalg.norm(m_corrected)
+    # # Compute confidence measures (example using a Gaussian function)
+    # sigma_a = 0.0677649323574827  # adjusted based on expected variation
+    # sigma_m = 0.1466190886315767 # adjusted based on expected variation in µT
+    # # Confidence measures for accelerometer and magnetometer based on guassian distribution
+    # conf_acc = np.exp(-((a_norm - 9.81)**2) / (2 * sigma_a**2))
+    # conf_mag = np.exp(-((m_norm - expected_mag)**2) / (2 * sigma_m**2))
+    # # Scale the nominal gains dynamically
+    # ka_dynamic = ka_nominal * conf_acc
+    # km_dynamic = km_nominal * conf_mag
+    # ka_dynamic_list.append(ka_dynamic)  #TEMP for graphing
+    # km_dynamic_list.append(km_dynamic)  #TEMP for graphing
+    # #^^^ --------------------------------------- Not Used --------------------------------------- ^^^#
 
     
     # Compute the error signals from cross products: Innovation:
@@ -270,19 +270,31 @@ for index, row in data.iterrows():
     times.append(t)
     rotation_angles.append(quaternion_to_angle(q))
 
+rotation_angles_degrees = np.degrees(rotation_angles)
+# plot rotation angle vs time for degrees
+plt.figure(figsize=(10, 5))
+plt.plot(times, rotation_angles_degrees, label='Rotation Angle (degrees)')
+plt.xlabel('Time (s)')
+plt.ylabel('Rotation Angle (degrees)')
+plt.title('Rotation Angle vs. Time from Mahony Filter')
+plt.legend()
+plt.grid(True)
+plt.show()
+
 # Plot the rotation angle vs. time
 plt.figure(figsize=(10, 5))
 plt.plot(times, rotation_angles, label='Rotation Angle (rad)')
 plt.xlabel('Time (s)')
 plt.ylabel('Rotation Angle (rad)')
-plt.title('Rotation Angle vs. Time from Mahony Filter (using SpatialMath)')
+plt.title('Rotation Angle vs. Time from Mahony Filter')
 plt.legend()
 plt.grid(True)
 plt.show()
 
 # Compute and print the total rotation at the end of the dataset
-total_rotation = rotation_angles[-1]
-print(f"Total rotation over the recorded period: {total_rotation:.3f} radians") #TODO add a plot for degrees.  TODO area under curve. 
+total_rotation = sum(rotation_angles)
+print(f"Total rotation over the recorded period: {total_rotation:.3f} radians") #TODO add a plot for degrees.
 
+total_rotation_deg = np.degrees(total_rotation)
+print(f"Total rotation over the recorded period: {total_rotation_deg:.3f} degrees") 
 
-plot_raw_data()
