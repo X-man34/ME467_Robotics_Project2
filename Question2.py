@@ -3,7 +3,6 @@ from spatialmath.base import skew, tr2angvec
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.linalg import expm
 
 
 # Load the CSV file
@@ -293,7 +292,7 @@ plt.show()
 
 # Compute and print the total rotation at the end of the dataset
 total_rotation = sum(rotation_angles)
-print(f"Total rotation over the recorded period: {total_rotation:.3f} radians") #TODO add a plot for degrees.
+print(f"Total rotation over the recorded period: {total_rotation:.3f} radians") 
 
 total_rotation_deg = np.degrees(total_rotation)
 print(f"Total rotation over the recorded period: {total_rotation_deg:.3f} degrees") 
