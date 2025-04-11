@@ -78,16 +78,29 @@ deltaT = .01
 quaternion = sm.UnitQuaternion()
 input_data = generate_body_angular_velocities(deltaT)
 
+# Set up the figure and 3D axis for visualization. and maximize the window
 plt.ion()
 fig = plt.figure()
+manager = plt.get_current_fig_manager()
+
+try:
+    # For TkAgg backend
+    manager.window.state('zoomed')
+except AttributeError:
+    try:
+        # For Qt backend
+        manager.window.showMaximized()
+    except AttributeError:
+        # Fallback for other backends
+        fig.set_size_inches(18.5, 10.5)
 ax = fig.add_subplot(111, projection='3d')
 
 
 for time, wx, wy, wz in input_data:   
     quaternion = updateQuaternion(quaternion, np.array([wx, wy, wz]).reshape(3,1), deltaT)
-    # final_quaternion = sm.UnitQuaternion()
-    # final_quaternion.data = [np.array(quaternion).reshape(1,4)]
-    # visualize_orientation_animation(final_quaternion, deltaT)
+    final_quaternion = sm.UnitQuaternion()
+    final_quaternion.data = [np.array(quaternion).reshape(1,4)]
+    visualize_orientation_animation(final_quaternion, deltaT)
 
 
 one = sm.SO3.Rx(np.pi/4)
