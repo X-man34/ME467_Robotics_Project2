@@ -205,126 +205,126 @@ def plot_rotation_data(times, rotation_angles, title_suffix="", data_in_radians=
     print(f"Total rotation over the recorded period: {total_rotation:.3f} {display_unit}")
 
 
-# Initialize filter variables and inertial references
-dt = 0.01 #TODO decide to keep constant time step or not.
-num_steps = len(data)
-
-# initial orientation
-q = sm.UnitQuaternion()
-
-# Initial gyroscope bias
-b = np.zeros(3)
-
-# Inertial acceleration (gravity, normalized) and magnetic field (given, normalized)
-a0 = np.array([0, 0, 1])  
-m0 = np.array([0.087117, 0.37923, -0.92119]) #TODO update this number
-
-# Initial Estimate Vectors
-v_hat_a = a0.copy() # .copy() copies the content into a new slot in memory
-v_hat_m = m0.copy()
-
-# Gains (adjust as needed) TODO adjust these guys to proper values
-kp = 1.0     # Proportional gain for orientation correction
-kI = 0.3     # Integral gain for bias correction
-ka_nominal = 1.0     # Gain for accelerometer error
-km_nominal = 1.0     # Gain for magnetometer error
-
-# Expected values
-expected_acc = 9.81
-expected_mag = np.linalg.norm([4525.28449, 19699.18982, -47850.850686]) / 1000  # Convert nT to µT
-
-
-# prev_time = data['t'][0] # Time step from the first entry, this will change dynamically in the loop  TODO decide to keep this or not
-times = []
-rotation_angles = []
-
-#TEMP
-m_corrected_array = [] # for graphing
-ka_dynamic_list = [] # for graphng
-km_dynamic_list = [] # for graphing
-
-
-# Process the sensor data and update the Mahony filter
-for index, row in data.iterrows():
-    #update dt to ensure it is consistent with the data TODO decide to keep this or not
-    # dt = t - prev_time if index != 0 else t
-    # prev_time = t
-
-    # Extract current measurements
-    t = row['t']
-    m = np.array([row['mx'], row['my'], row['mz']])
-    gyro = np.array([row['gyrox'], row['gyroy'], row['gyroz']])
-    a = np.array([row['ax'], row['ay'], row['az']])
-    
-    # Normalize accelerometer measurements
-    # If statements prevents divide by zero errors where a = [0, 0, 0] or m = [0, 0, 0]
-    if np.linalg.norm(a) != 0:
-        v_a = a / np.linalg.norm(a)
-    else:
-        v_a = a
-
-    # Normalize magnetometer measurements while subtracting gravity component
-    #gravity terms
-    g_inertial = np.array([0, 0, 1])
-    g_body = q.R @ g_inertial
-    #projecting m onto g_body, this gives the part of m that is in the gravity direction
-    m_vertical = np.dot(m, g_body) # FIXME why multiply by g_body here? remove this? Make sure projection is correct here
-    m_corrected = m - m_vertical # FIXME, normalize m before?because m is not normalized here but m_vertical is normalized
-    if np.linalg.norm(m_corrected) != 0:
-        v_m = m_corrected / np.linalg.norm(m_corrected)
-    else:
-        v_m = m_corrected
-
-    m_corrected_array.append(m_corrected.copy())  #TEMP
-
-    # #vvv --------------------------------------- Not Used --------------------------------------- vvv#
-    # # Calculate dynamic km and ka gains based on gaussian curve
-    # # compute sensor norms
-    # a_norm = np.linalg.norm(a)
-    # m_norm = np.linalg.norm(m_corrected)
-    # # Compute confidence measures (example using a Gaussian function)
-    # sigma_a = 0.0677649323574827  # adjusted based on expected variation
-    # sigma_m = 0.1466190886315767 # adjusted based on expected variation in µT
-    # # Confidence measures for accelerometer and magnetometer based on guassian distribution
-    # conf_acc = np.exp(-((a_norm - 9.81)**2) / (2 * sigma_a**2))
-    # conf_mag = np.exp(-((m_norm - expected_mag)**2) / (2 * sigma_m**2))
-    # # Scale the nominal gains dynamically
-    # ka_dynamic = ka_nominal * conf_acc
-    # km_dynamic = km_nominal * conf_mag
-    # ka_dynamic_list.append(ka_dynamic)  #TEMP for graphing
-    # km_dynamic_list.append(km_dynamic)  #TEMP for graphing
-    # #^^^ --------------------------------------- Not Used --------------------------------------- ^^^#
-
-    
-    # Compute the error signals from cross products: Innovation:
-    error_acc = np.cross(v_a, v_hat_a)
-    error_mag = np.cross(v_m, v_hat_m)
-    omega_mes = ka_nominal * error_acc + km_nominal * error_mag
-
-    # Update the gyroscope bias estimate
-    b = b - kI * omega_mes * dt
-    
-    # Compute effective angular velocity for the update: 
-    u = gyro - b + kp * omega_mes
-
-    # Update the orientation quaternion using our update function
-    q = updateQuaternion(q, u, dt)
-
-    # Update the estimated reference vectors using the Rodrigues formula
-    R_update = rodrigues(-u, dt)
-
-    v_hat_a = R_update @ v_hat_a
-    v_hat_a = v_hat_a / np.linalg.norm(v_hat_a)
-
-    v_hat_m = R_update @ v_hat_m
-    v_hat_m = v_hat_m / np.linalg.norm(v_hat_m)
-
-
-    # Store the current time and the rotation angle from the quaternion
-    times.append(t)
-    rotation_angles.append(quaternion_to_angle(q))
-
 
 if __name__ == "__main__":
+    # Initialize filter variables and inertial references
+    dt = 0.01 #TODO decide to keep constant time step or not.
+    num_steps = len(data)
+
+    # initial orientation
+    q = sm.UnitQuaternion()
+
+    # Initial gyroscope bias
+    b = np.zeros(3)
+
+    # Inertial acceleration (gravity, normalized) and magnetic field (given, normalized)
+    a0 = np.array([0, 0, 1])  
+    m0 = np.array([0.087117, 0.37923, -0.92119]) #TODO update this number
+
+    # Initial Estimate Vectors
+    v_hat_a = a0.copy() # .copy() copies the content into a new slot in memory
+    v_hat_m = m0.copy()
+
+    # Gains (adjust as needed) TODO adjust these guys to proper values
+    kp = 1.0     # Proportional gain for orientation correction
+    kI = 0.3     # Integral gain for bias correction
+    ka_nominal = 1.0     # Gain for accelerometer error
+    km_nominal = 1.0     # Gain for magnetometer error
+
+    # Expected values
+    expected_acc = 9.81
+    expected_mag = np.linalg.norm([4525.28449, 19699.18982, -47850.850686]) / 1000  # Convert nT to µT
+
+
+    # prev_time = data['t'][0] # Time step from the first entry, this will change dynamically in the loop  TODO decide to keep this or not
+    times = []
+    rotation_angles = []
+
+    #TEMP
+    m_corrected_array = [] # for graphing
+    ka_dynamic_list = [] # for graphng
+    km_dynamic_list = [] # for graphing
+
+
+    # Process the sensor data and update the Mahony filter
+    for index, row in data.iterrows():
+        #update dt to ensure it is consistent with the data TODO decide to keep this or not
+        # dt = t - prev_time if index != 0 else t
+        # prev_time = t
+
+        # Extract current measurements
+        t = row['t']
+        m = np.array([row['mx'], row['my'], row['mz']])
+        gyro = np.array([row['gyrox'], row['gyroy'], row['gyroz']])
+        a = np.array([row['ax'], row['ay'], row['az']])
+        
+        # Normalize accelerometer measurements
+        # If statements prevents divide by zero errors where a = [0, 0, 0] or m = [0, 0, 0]
+        if np.linalg.norm(a) != 0:
+            v_a = a / np.linalg.norm(a)
+        else:
+            v_a = a
+
+        # Normalize magnetometer measurements while subtracting gravity component
+        #gravity terms
+        g_inertial = np.array([0, 0, 1])
+        g_body = q.R @ g_inertial
+        #projecting m onto g_body, this gives the part of m that is in the gravity direction
+        m_vertical = np.dot(m, g_body) # FIXME why multiply by g_body here? remove this? Make sure projection is correct here
+        m_corrected = m - m_vertical # FIXME, normalize m before?because m is not normalized here but m_vertical is normalized
+        if np.linalg.norm(m_corrected) != 0:
+            v_m = m_corrected / np.linalg.norm(m_corrected)
+        else:
+            v_m = m_corrected
+
+        m_corrected_array.append(m_corrected.copy())  #TEMP
+
+        # #vvv --------------------------------------- Not Used --------------------------------------- vvv#
+        # # Calculate dynamic km and ka gains based on gaussian curve
+        # # compute sensor norms
+        # a_norm = np.linalg.norm(a)
+        # m_norm = np.linalg.norm(m_corrected)
+        # # Compute confidence measures (example using a Gaussian function)
+        # sigma_a = 0.0677649323574827  # adjusted based on expected variation
+        # sigma_m = 0.1466190886315767 # adjusted based on expected variation in µT
+        # # Confidence measures for accelerometer and magnetometer based on guassian distribution
+        # conf_acc = np.exp(-((a_norm - 9.81)**2) / (2 * sigma_a**2))
+        # conf_mag = np.exp(-((m_norm - expected_mag)**2) / (2 * sigma_m**2))
+        # # Scale the nominal gains dynamically
+        # ka_dynamic = ka_nominal * conf_acc
+        # km_dynamic = km_nominal * conf_mag
+        # ka_dynamic_list.append(ka_dynamic)  #TEMP for graphing
+        # km_dynamic_list.append(km_dynamic)  #TEMP for graphing
+        # #^^^ --------------------------------------- Not Used --------------------------------------- ^^^#
+
+        
+        # Compute the error signals from cross products: Innovation:
+        error_acc = np.cross(v_a, v_hat_a)
+        error_mag = np.cross(v_m, v_hat_m)
+        omega_mes = ka_nominal * error_acc + km_nominal * error_mag
+
+        # Update the gyroscope bias estimate
+        b = b - kI * omega_mes * dt
+        
+        # Compute effective angular velocity for the update: 
+        u = gyro - b + kp * omega_mes
+
+        # Update the orientation quaternion using our update function
+        q = updateQuaternion(q, u, dt)
+
+        # Update the estimated reference vectors using the Rodrigues formula
+        R_update = rodrigues(-u, dt)
+
+        v_hat_a = R_update @ v_hat_a
+        v_hat_a = v_hat_a / np.linalg.norm(v_hat_a)
+
+        v_hat_m = R_update @ v_hat_m
+        v_hat_m = v_hat_m / np.linalg.norm(v_hat_m)
+
+
+        # Store the current time and the rotation angle from the quaternion
+        times.append(t)
+        rotation_angles.append(quaternion_to_angle(q))
+
     # Compute and print the total rotation at the end of the dataset
     plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=True)
