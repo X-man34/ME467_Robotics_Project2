@@ -5,7 +5,7 @@
 
     <asset>
         <!-- Load the STL mesh -->
-        <mesh name="phone_mesh" file="iphone8.stl" />
+        <mesh name="phone_mesh" file="stabbedPhone.stl" />
     </asset>
 
     <worldbody>

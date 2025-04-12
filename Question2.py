@@ -91,7 +91,6 @@ def plot_raw_data(m_corrected_array, csv_data):
     print("sigma_a during entire period:", sigma_a)
     print("sigma_m during entire period:", sigma_m)
 
-
 def plot_rotation_data(times, rotation_angles, title_suffix="", data_in_radians=True, convert=False):
     """
     Plots rotation angle vs. time on a single plot and displays the total rotation on the figure
@@ -146,9 +145,6 @@ def plot_rotation_data(times, rotation_angles, title_suffix="", data_in_radians=
     print(f"Total rotation over the recorded period: {total_rotation:.3f} {display_unit}")    
     plt.show()
     
-
-
-
 class MahonyFilter:
     """
     Mahony Filter for attitude estimation.
@@ -166,7 +162,7 @@ class MahonyFilter:
         self.v_hat_a = np.array([0, 0, 1])  # Initial estimate of the accelerometer vector
         self.v_hat_m = self.m0.copy()
 
-    def updateQuaternion(self, q_old: sm.UnitQuaternion, u):
+    def updateQuaternion(self, q_old: sm.UnitQuaternion, u, **kwargs):
         """
         Update the given orientation quaternion q using the effective angular velocity u over time dt.
         This implements the closed-form update:
@@ -174,7 +170,7 @@ class MahonyFilter:
         Here, q is a spatialmath UnitQuaternion and u is a 3-element vector.
         """
         norm_u = np.linalg.norm(u)
-        theta = 0.5 * self.dT
+        theta = 0.5 * kwargs.get('time_step', self.dT)
         if norm_u < 1e-8: # divide by 0 prevention
             update_exp = np.eye(4)
         else:
@@ -200,7 +196,7 @@ class MahonyFilter:
             [omega.reshape(3,1), -skew(omega)]
         ])
 
-    def rodrigues(self,u):
+    def rodrigues(self,u, **kwargs):
         """
         Compute the rotation matrix for a rotation of angle theta = ||u||*dt about axis u/||u||,
         using the Rodrigues formula.
@@ -214,14 +210,14 @@ class MahonyFilter:
         # R = np.eye(3) + np.sin(theta)*u_skew + (1 - np.cos(theta))*(u_skew @ u_skew)
 
         #FIXME make sure i am implemented correct
-        theta = norm_u * self.dT
+        theta = norm_u * kwargs.get('time_step', self.dT)
         u_normalized = u / norm_u
         u_skew = skew(u)
         R = np.eye(3) + np.sin(theta)*(u_skew /u_normalized) + (1 - np.cos(theta))*((u_skew @ u_skew) /( u_normalized ** 2))
         return R
 
 
-    def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray)-> sm.UnitQuaternion:
+    def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
         """
         Perform a single time step of the Mahony filter update.
         This function takes in the current sensor measurements and updates the filter's state.
@@ -233,7 +229,8 @@ class MahonyFilter:
 
         Returns:
             Updated orientation quaternion.
-        """                   
+        """       
+        time_step = kwargs.get('time_step', self.dT)  # Use the provided time step or the default one            
         # Normalize accelerometer measurements
         # If statements prevents divide by zero errors where a = [0, 0, 0] or m = [0, 0, 0]
         if np.linalg.norm(accel_vector) != 0:
@@ -278,16 +275,16 @@ class MahonyFilter:
         omega_mes = self.ka_nominal * error_acc + self.km_nominal * error_mag
 
             # Update the gyroscope bias estimate
-        self.bias = self.bias - self.kI * omega_mes * self.dT
+        self.bias = self.bias - self.kI * omega_mes * time_step
             
             # Compute effective angular velocity for the update: 
         u = gyro_vector - self.bias + self.kp * omega_mes
 
             # Update the orientation quaternion using our update function
-        self.q = self.updateQuaternion(self.q, u)
+        self.q = self.updateQuaternion(self.q, u, time_step=time_step)
 
             # Update the estimated reference vectors using the Rodrigues formula
-        R_update = self.rodrigues(-u)
+        R_update = self.rodrigues(-u, time_step=time_step)
 
         self.v_hat_a = R_update @ self.v_hat_a
         self.v_hat_a = self.v_hat_a / np.linalg.norm(self.v_hat_a)
@@ -298,7 +295,7 @@ class MahonyFilter:
 
 
 if __name__ == "__main__":
-    do_real_time_visualization = True
+    do_real_time_visualization = True # Set to True for real-time visualization, False for offline processing
     # Load the CSV file
     csv_data = pd.read_csv('question2_input.csv', header=None,
                     names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
