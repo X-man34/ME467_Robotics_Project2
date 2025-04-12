@@ -27,8 +27,11 @@ for index, row in data.iterrows():
     gyro = np.array([row['gyrox'], row['gyroy'], row['gyroz']])
 
     # Update the orientation quaternion using our update function
-    q = updateQuaternion(q, u, dt)
+    q = updateQuaternion(q, gyro, dt)
 
     # Store the current time and the rotation angle from the quaternion
     times.append(t)
     rotation_angles.append(quaternion_to_angle(q))
+
+
+plot_rotation_data(times, rotation_angles, 'using Naive Orientation Estimator', True, True)
