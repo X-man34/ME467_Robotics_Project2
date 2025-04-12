@@ -1,0 +1,17 @@
+<mujoco model="phone_model">
+    <compiler angle="radian" coordinate="local" />
+
+    <option gravity="0 0 -9.81" />
+
+    <asset>
+        <!-- Load the STL mesh -->
+        <mesh name="phone_mesh" file="stabbedPhone.stl" />
+    </asset>
+
+    <worldbody>
+        <body name="phone" pos="0 0 0">
+            <!-- Attach the mesh as a visual and collision object -->
+            <geom type="mesh" mesh="phone_mesh" rgba="0.2 0.6 0.8 1" pos="-35 -135 -208" />
+        </body>
+    </worldbody>
+</mujoco>
