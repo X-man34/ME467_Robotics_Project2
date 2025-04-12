@@ -7,9 +7,9 @@ import numpy as np
 
 server_ip = "http://192.168.12.149:80"
 sampling_interval = 0.01  # 100 Hz
-data_queue = deque()
+data_queue = []
 
-def data_queue_updater(collectionTime=3, fetch_interval=0.25):
+def data_queue_updater(collectionTime=3, fetch_interval=0.125):
     """
     This function runs in a separate thread and continuously fetches data from the phone, putting it into the data queue.
     It will run for a specified amount of time (collectionTime) and then stop.
@@ -34,11 +34,6 @@ def data_queue_updater(collectionTime=3, fetch_interval=0.25):
 
             # Your last known timestamp from gyro_time
             last_time = data_queue[-1][0] if data_queue else 0
-        
-            # print length of the data queue'
-            print(f"Data queue length: {len(data_queue)}")
-            if len(data_queue) > 0:
-                print(f"Last element in data queue: {data_queue[-1]}")
             print(f"Last time: {last_time}")
             # Construct the partial GET request
             if last_time != 0:
@@ -113,15 +108,6 @@ def data_queue_updater(collectionTime=3, fetch_interval=0.25):
                                         mag_buffers.get("magY", {}).get("buffer", []),
                                         mag_buffers.get("magZ", {}).get("buffer", [])))
                 
-    
-
-
-                if last_time == 0:
-                    print("No last time, so we are getting the full data set")
-                    print(f"Fetched {len(times)} time samples.")
-                    print(f"Fetched {len(accel_vectors)} accel samples.")
-                    print(f"Fetched {len(gyro_vectors)} gyro samples.")
-                    print(f"Fetched {len(mag_vectors)} mag samples.")
                 
                 #Since we are hijacking this open source code, each response give the full history of the data, (I know it gets expontially less efficient, but lets just not use it for long amounts of time...)
                 # Becuase of this we need to trim off the data we already have. 
@@ -180,88 +166,127 @@ def send_command(command):
 
 
 # Start collecting data and storing it in the buffer. 
-data_updater_thread = threading.Thread(target=data_queue_updater, args=(90, 0.25))
+data_updater_thread = threading.Thread(target=data_queue_updater, args=(90, 0.125))
 data_updater_thread.start()
 time.sleep(.25)# Let the buffer build up a bit so we dont' run out of data to graph. 
 graphing_start_time = time.time() # This is what we will call time 0 for the purposes of the graph, and "corresponds" to time 0 in the data, even though its later. 
 
 
-# Setup figure with 3 subplots
-fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(10, 8))
-fig.suptitle("Real-time Sensor Vector Magnitudes (Full History)")
 
-# Data containers (grow as new data comes in)
-time_data = []
-acc_mag_data = []
-gyro_mag_data = []
-mag_mag_data = []
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
-# Plot lines
-line1, = ax1.plot([], [], label="Acceleration Magnitude", color="red")
-line2, = ax2.plot([], [], label="Gyroscope Magnitude", color="green")
-line3, = ax3.plot([], [], label="Magnetometer Magnitude", color="blue")
+# Variables to control which plots show up (set to True if you want the plot to show)
+plot_acc = True
+plot_gyro = True
+plot_mag = True
+plot_acc_x = True
+plot_acc_y = True
+plot_acc_z = True
+plot_gyro_x = True
+plot_gyro_y = True
+plot_gyro_z = True
+plot_mag_x = True
+plot_mag_y = True
+plot_mag_z = True
 
-for ax in (ax1, ax2, ax3):
-    ax.set_ylim(0, 50)  # Adjust based on expected range
-    ax.legend()
-    ax.grid(True)
+n_seconds = 5  # Last N seconds to plot
 
-ax1.set_ylabel("Accel (m/s²)")
-ax2.set_ylabel("Gyro (rad/s)")
-ax3.set_ylabel("Mag (µT)")
-ax3.set_xlabel("Time (s)")
+# Create a figure for each sensor type (acceleration, gyro, magnetometer)
+fig_acc = plt.figure("Acceleration Components", figsize=(10, 8)) if plot_acc else None
+fig_gyro = plt.figure("Gyroscope Components", figsize=(10, 8)) if plot_gyro else None
+fig_mag = plt.figure("Magnetometer Components", figsize=(10, 8)) if plot_mag else None
 
-start_time = None
+# Acceleration subplots (X, Y, Z)
+ax1_acc = fig_acc.add_subplot(311, label="AccX") if plot_acc_x else None
+ax2_acc = fig_acc.add_subplot(312, label="AccY") if plot_acc_y else None
+ax3_acc = fig_acc.add_subplot(313, label="AccZ") if plot_acc_z else None
 
-def vector_magnitude(vec):
-    return math.sqrt(vec[0]**2 + vec[1]**2 + vec[2]**2)
+# Gyroscope subplots (X, Y, Z)
+ax1_gyro = fig_gyro.add_subplot(311, label="GyroX") if plot_gyro_x else None
+ax2_gyro = fig_gyro.add_subplot(312, label="GyroY") if plot_gyro_y else None
+ax3_gyro = fig_gyro.add_subplot(313, label="GyroZ") if plot_gyro_z else None
 
-def set_dynamic_ylim(ax, data, margin=0.1):
-    if not data:
-        return
-    min_val = min(data)
-    max_val = max(data)
-    if min_val == max_val:
-        # Add a small buffer if all values are the same
-        ax.set_ylim(min_val - 1, max_val + 1)
-    else:
-        padding = (max_val - min_val) * margin
-        ax.set_ylim(min_val - padding, max_val + padding)
+# Magnetometer subplots (X, Y, Z)
+ax1_mag = fig_mag.add_subplot(311, label="MagX") if plot_mag_x else None
+ax2_mag = fig_mag.add_subplot(312, label="MagY") if plot_mag_y else None
+ax3_mag = fig_mag.add_subplot(313, label="MagZ") if plot_mag_z else None
+
+# Set up limits, labels, and grid for each axis
+for ax in [ax1_acc, ax2_acc, ax3_acc]:
+    if ax:
+        ax.set_ylim(-50, 50)
+        ax.grid(True)
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Acceleration (m/s²)")
+
+for ax in [ax1_gyro, ax2_gyro, ax3_gyro]:
+    if ax:
+        ax.set_ylim(-50, 50)
+        ax.grid(True)
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Gyroscope (rad/s)")
+
+for ax in [ax1_mag, ax2_mag, ax3_mag]:
+    if ax:
+        ax.set_ylim(-50, 50)
+        ax.grid(True)
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Magnetometer (µT)")
 
 def update(frame):
-    global start_time
-
+    global graphing_start_time
     if not data_queue:
-        return line1, line2, line3
+        return
 
-    while data_queue:
-        t, acc, gyro, mag = data_queue.popleft()
-        if start_time is None:
-            start_time = t
-        t -= start_time
+    current_time = data_queue[-1][0]
+    cutoff = current_time - n_seconds
 
-        acc_mag_data.append(vector_magnitude(acc))
-        gyro_mag_data.append(vector_magnitude(gyro))
-        mag_mag_data.append(vector_magnitude(mag))
-        time_data.append(t)
+    relevant_data = [item for item in data_queue if item[0] >= cutoff]
+    times = [t - graphing_start_time for t, _, _, _ in relevant_data]
+    
+    # Acceleration components
+    acc_x = [a[0] for _, a, _, _ in relevant_data]
+    acc_y = [a[1] for _, a, _, _ in relevant_data]
+    acc_z = [a[2] for _, a, _, _ in relevant_data]
 
-    # Update plot data
-    line1.set_data(time_data, acc_mag_data)
-    line2.set_data(time_data, gyro_mag_data)
-    line3.set_data(time_data, mag_mag_data)
+    # Gyroscope components
+    gyro_x = [g[0] for _, _, g, _ in relevant_data]
+    gyro_y = [g[1] for _, _, g, _ in relevant_data]
+    gyro_z = [g[2] for _, _, g, _ in relevant_data]
 
-    # Update x-limits
-    if time_data:
-        for ax in (ax1, ax2, ax3):
-            ax.set_xlim(0, time_data[-1])
+    # Magnetometer components
+    mag_x = [m[0] for _, _, _, m in relevant_data]
+    mag_y = [m[1] for _, _, _, m in relevant_data]
+    mag_z = [m[2] for _, _, _, m in relevant_data]
 
-    # Dynamically adjust y-limits
-    set_dynamic_ylim(ax1, acc_mag_data)
-    set_dynamic_ylim(ax2, gyro_mag_data)
-    set_dynamic_ylim(ax3, mag_mag_data)
+    # Update data for each subplot, based on visibility flags
+    if ax1_acc and plot_acc_x:
+        ax1_acc.plot(times, acc_x, color='red')
+    if ax2_acc and plot_acc_y:
+        ax2_acc.plot(times, acc_y, color='green')
+    if ax3_acc and plot_acc_z:
+        ax3_acc.plot(times, acc_z, color='blue')
 
-    return line1, line2, line3
+    if ax1_gyro and plot_gyro_x:
+        ax1_gyro.plot(times, gyro_x, color='red')
+    if ax2_gyro and plot_gyro_y:
+        ax2_gyro.plot(times, gyro_y, color='green')
+    if ax3_gyro and plot_gyro_z:
+        ax3_gyro.plot(times, gyro_z, color='blue')
 
-ani = FuncAnimation(fig, update, interval=10)  # Call update every 100 ms
+    if ax1_mag and plot_mag_x:
+        ax1_mag.plot(times, mag_x, color='red')
+    if ax2_mag and plot_mag_y:
+        ax2_mag.plot(times, mag_y, color='green')
+    if ax3_mag and plot_mag_z:
+        ax3_mag.plot(times, mag_z, color='blue')
+
+    return
+
+ani_acc = FuncAnimation(fig_acc, update, interval=10) if fig_acc else None
+ani_gyro = FuncAnimation(fig_gyro, update, interval=10) if fig_gyro else None
+ani_mag = FuncAnimation(fig_mag, update, interval=10) if fig_mag else None
+
 plt.tight_layout()
 plt.show()
