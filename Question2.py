@@ -5,11 +5,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-# Load the CSV file
-data = pd.read_csv('question2_input.csv', header=None,
-                   names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
-
-
 # Helper Functions
 def updateQuaternion(q, u, dt):
     """
@@ -207,6 +202,11 @@ def plot_rotation_data(times, rotation_angles, title_suffix="", data_in_radians=
 
 
 if __name__ == "__main__":
+
+    # Load the CSV file
+    data = pd.read_csv('question2_input.csv', header=None,
+                    names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
+
     # Initialize filter variables and inertial references
     dt = 0.01 #TODO decide to keep constant time step or not.
     num_steps = len(data)
