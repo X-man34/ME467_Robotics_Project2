@@ -149,6 +149,61 @@ def plot_raw_data():
     print("sigma_m during entire period:", sigma_m)
 
 
+def plot_rotation_data(times, rotation_angles, title_suffix="", data_in_radians=True, convert=False):
+    """
+    Plots rotation angle vs. time on a single plot and displays the total rotation on the figure
+    (outside of the main data plot area), while also printing it to the console.
+
+    Parameters:
+        times (array-like): Time data (in seconds).
+        rotation_angles (array-like): Rotation angle data.
+            The unit of the rotation data is determined by the `data_in_radians` flag.
+        title_suffix (str): Suffix to be appended to the plot title.
+        data_in_radians (bool): True if the provided rotation_angles are in radians; 
+                                False if they are in degrees.
+        convert (bool, optional): If True, converts the rotation data to the other unit 
+                                  (radians -> degrees or degrees -> radians) before plotting.
+                                  Default is False.
+    """
+    # Determine the original and conversion units
+    orig_unit = 'radians' if data_in_radians else 'degrees'
+    conv_unit = 'degrees' if data_in_radians else 'radians'
+    
+    # Choose the data to plot based on whether conversion is needed
+    if convert:
+        if data_in_radians:
+            # Convert from radians to degrees
+            rotation_data = np.degrees(rotation_angles)
+        else:
+            # Convert from degrees to radians
+            rotation_data = np.radians(rotation_angles)
+        display_unit = conv_unit
+    else:
+        rotation_data = rotation_angles
+        display_unit = orig_unit
+
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(times, rotation_data, label=f'Rotation Angle ({display_unit})')
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel(f'Rotation Angle ({display_unit})')
+    ax.set_title(f'Rotation Angle vs. Time {title_suffix}')
+    ax.legend()
+    ax.grid(True)
+
+    # Compute total rotation based on the plotted data
+    total_rotation = np.sum(rotation_data)
+    textstr = f"Total rotation over the recorded period: {total_rotation:.3f} {display_unit}"
+    
+    # Add figure-level text that appears outside the main axes area (upper-right corner of the entire figure)
+    plt.figtext(0.98, 0.98, textstr, horizontalalignment='right', verticalalignment='top',
+                fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="wheat", alpha=0.5))
+    
+    plt.show()
+    
+    # Also print the total rotation to the console
+    print(f"Total rotation over the recorded period: {total_rotation:.3f} {display_unit}")
+
 
 # Initialize filter variables and inertial references
 dt = 0.01 #TODO decide to keep constant time step or not.
@@ -269,31 +324,7 @@ for index, row in data.iterrows():
     times.append(t)
     rotation_angles.append(quaternion_to_angle(q))
 
-rotation_angles_degrees = np.degrees(rotation_angles)
-# plot rotation angle vs time for degrees
-plt.figure(figsize=(10, 5))
-plt.plot(times, rotation_angles_degrees, label='Rotation Angle (degrees)')
-plt.xlabel('Time (s)')
-plt.ylabel('Rotation Angle (degrees)')
-plt.title('Rotation Angle vs. Time from Mahony Filter')
-plt.legend()
-plt.grid(True)
-plt.show()
 
-# Plot the rotation angle vs. time
-plt.figure(figsize=(10, 5))
-plt.plot(times, rotation_angles, label='Rotation Angle (rad)')
-plt.xlabel('Time (s)')
-plt.ylabel('Rotation Angle (rad)')
-plt.title('Rotation Angle vs. Time from Mahony Filter')
-plt.legend()
-plt.grid(True)
-plt.show()
-
-# Compute and print the total rotation at the end of the dataset
-total_rotation = sum(rotation_angles)
-print(f"Total rotation over the recorded period: {total_rotation:.3f} radians") 
-
-total_rotation_deg = np.degrees(total_rotation)
-print(f"Total rotation over the recorded period: {total_rotation_deg:.3f} degrees") 
-
+if __name__ == "__main__":
+    # Compute and print the total rotation at the end of the dataset
+    plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=True)
