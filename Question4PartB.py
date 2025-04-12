@@ -13,7 +13,7 @@ dt = 0.01
 num_steps = len(data)
 
 # initial orientation
-q = sm.UnitQuaternion()
+current_orientation_quat = sm.UnitQuaternion()
 
 # prev_time = data['t'][0] # Time step from the first entry, this will change dynamically in the loop  TODO decide to keep this or not
 times = []
@@ -27,11 +27,11 @@ for index, row in data.iterrows():
     gyro = np.array([row['gyrox'], row['gyroy'], row['gyroz']])
 
     # Update the orientation quaternion using our update function
-    q = updateQuaternion(q, gyro, dt)
+    current_orientation_quat = updateQuaternion(current_orientation_quat, gyro, dt)
 
     # Store the current time and the rotation angle from the quaternion
     times.append(t)
-    rotation_angles.append(quaternion_to_angle(q))
+    rotation_angles.append(quaternion_to_angle(current_orientation_quat))
 
 
 plot_rotation_data(times, rotation_angles, 'using Naive Orientation Estimator', True, True)

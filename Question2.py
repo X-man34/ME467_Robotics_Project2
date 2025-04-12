@@ -3,62 +3,10 @@ from spatialmath.base import skew, tr2angvec
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
-
+import time
+import mujoco as mj
+import mujoco.viewer
 # Helper Functions
-def updateQuaternion(q, u, dt):
-    """
-    Update the orientation quaternion q using the effective angular velocity u over time dt.
-    This implements the closed-form update:
-        q_{k+1} = exp((1/2)*Omega(u)*dt) * q_k.
-    Here, q is a spatialmath UnitQuaternion and u is a 3-element vector.
-    """
-    norm_u = np.linalg.norm(u)
-    theta = 0.5 * dt
-    if norm_u < 1e-8: # divide by 0 prevention
-        update_exp = np.eye(4)
-    else:
-        Omega_u = OMEGA(u)
-        update_exp = np.cos(norm_u*theta)*np.eye(4) + (np.sin(norm_u*theta)/norm_u)*Omega_u
-
-    # Multiply update matrix by current quaternion (represented as a 4x1 vector)
-    new_q_data = update_exp @ np.array(q.data).reshape(4, 1) # need to reshape so matrix mult works correctly
-    new_q_data = new_q_data.flatten() # converts back to 1D array
-    new_q_data = new_q_data / np.linalg.norm(new_q_data)  # Normalize, just in case of small floating point errors. should be a unit quaternion anyway
-    return sm.UnitQuaternion(new_q_data)
-
-def OMEGA(omega):
-    """
-    Construct the 4x4 Omega matrix from a 3D angular velocity vector omega.
-    """
-    omega = np.asarray(omega).flatten() # always ensure it's a 1D array
-    if omega.shape != (3,):
-        raise ValueError("Input omega must be a 3-element vector.")
-    return np.block([
-        [0,           -omega.reshape(1,3)],
-        [omega.reshape(3,1), -skew(omega)]
-    ])
-
-def rodrigues(u, dt):
-    """
-    Compute the rotation matrix for a rotation of angle theta = ||u||*dt about axis u/||u||,
-    using the Rodrigues formula.
-    """
-    norm_u = np.linalg.norm(u) 
-    if norm_u < 1e-8: # prevent division by zero errors
-        return np.eye(3)
-    # theta = norm_u * dt
-    # u_normalized = u / norm_u
-    # u_skew = skew(u_normalized)
-    # R = np.eye(3) + np.sin(theta)*u_skew + (1 - np.cos(theta))*(u_skew @ u_skew)
-
-    #FIXME make sure i am implemented correct
-    theta = norm_u * dt
-    u_normalized = u / norm_u
-    u_skew = skew(u)
-    R = np.eye(3) + np.sin(theta)*(u_skew /u_normalized) + (1 - np.cos(theta))*((u_skew @ u_skew) /( u_normalized ** 2))
-    return R
-
 def quaternion_to_angle(q):
     """
     Compute the rotation angle (in radians) from the UnitQuaternion q.
@@ -67,7 +15,7 @@ def quaternion_to_angle(q):
     ang, axis = tr2angvec(q.R)
     return ang
 
-def plot_raw_data():
+def plot_raw_data(m_corrected_array, csv_data):
     # Define percent values for each sensor
     percent_value_acc = 0.12   
     percent_value_mag = 0.10  
@@ -89,7 +37,7 @@ def plot_raw_data():
     acc_norms = []
     mag_norms = []
 
-    for index, row in data.iterrows():
+    for index, row in csv_data.iterrows():
         times_raw.append(row['t'])
         a = np.array([row['ax'], row['ay'], row['az']])
         m = np.array(m_corrected_array[index])  # Use the corrected magnetometer data
@@ -193,138 +141,245 @@ def plot_rotation_data(times, rotation_angles, title_suffix="", data_in_radians=
     # Add figure-level text that appears outside the main axes area (upper-right corner of the entire figure)
     plt.figtext(0.98, 0.98, textstr, horizontalalignment='right', verticalalignment='top',
                 fontsize=10, bbox=dict(boxstyle="round,pad=0.3", facecolor="wheat", alpha=0.5))
-    
+
+    #  Print the total rotation to the console
+    print(f"Total rotation over the recorded period: {total_rotation:.3f} {display_unit}")    
     plt.show()
     
-    # Also print the total rotation to the console
-    print(f"Total rotation over the recorded period: {total_rotation:.3f} {display_unit}")
 
 
 
-if __name__ == "__main__":
+class MahonyFilter:
+    """
+    Mahony Filter for attitude estimation.
+    """
+    def __init__(self, dT, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=1.0, true_m=np.array([0.087117, 0.37923, -0.92119])):
+        self.g_inertial = np.array([0, 0, 1])
+        self.dT = dT
+        self.kp = kp
+        self.kI = kI
+        self.ka_nominal = ka_nominal
+        self.km_nominal = km_nominal
+        self.q = sm.UnitQuaternion()  # Initial orientation quaternion
+        self.bias = np.zeros(3)  # Initial gyroscope bias
+        self.m0 = true_m  # True magnetic field vector (inertial frame)
+        self.v_hat_a = np.array([0, 0, 1])  # Initial estimate of the accelerometer vector
+        self.v_hat_m = self.m0.copy()
 
-    # Load the CSV file
-    data = pd.read_csv('question2_input.csv', header=None,
-                    names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
+    def updateQuaternion(self, q_old: sm.UnitQuaternion, u):
+        """
+        Update the given orientation quaternion q using the effective angular velocity u over time dt.
+        This implements the closed-form update:
+            q_{k+1} = exp((1/2)*Omega(u)*dt) * q_k.
+        Here, q is a spatialmath UnitQuaternion and u is a 3-element vector.
+        """
+        norm_u = np.linalg.norm(u)
+        theta = 0.5 * self.dT
+        if norm_u < 1e-8: # divide by 0 prevention
+            update_exp = np.eye(4)
+        else:
+            Omega_u = self.OMEGA(u)
+            update_exp = np.cos(norm_u*theta)*np.eye(4) + (np.sin(norm_u*theta)/norm_u)*Omega_u
 
-    # Initialize filter variables and inertial references
-    dt = 0.01 #TODO decide to keep constant time step or not.
-    num_steps = len(data)
+        # Multiply update matrix by current quaternion (represented as a 4x1 vector)
+        new_q_data = update_exp @ np.array(q_old.data).reshape(4, 1) # need to reshape so matrix mult works correctly
+        new_q_data = new_q_data.flatten() # converts back to 1D array
+        new_q_data = new_q_data / np.linalg.norm(new_q_data)  # Normalize, just in case of small floating point errors. should be a unit quaternion anyway
+        # FIXME: Consider removine this extra normalization step to save compute time, we are actually kind of slow. 
+        return sm.UnitQuaternion(new_q_data)
 
-    # initial orientation
-    q = sm.UnitQuaternion()
+    def OMEGA(self, omega):
+        """
+        Construct the 4x4 Omega matrix from a 3D angular velocity vector omega.
+        """
+        omega = np.asarray(omega).flatten() # always ensure it's a 1D array
+        if omega.shape != (3,):
+            raise ValueError("Input omega must be a 3-element vector.")
+        return np.block([
+            [0,           -omega.reshape(1,3)],
+            [omega.reshape(3,1), -skew(omega)]
+        ])
 
-    # Initial gyroscope bias
-    b = np.zeros(3)
+    def rodrigues(self,u):
+        """
+        Compute the rotation matrix for a rotation of angle theta = ||u||*dt about axis u/||u||,
+        using the Rodrigues formula.
+        """
+        norm_u = np.linalg.norm(u) 
+        if norm_u < 1e-8: # prevent division by zero errors
+            return np.eye(3)
+        # theta = norm_u * sekf.dT
+        # u_normalized = u / norm_u
+        # u_skew = skew(u_normalized)
+        # R = np.eye(3) + np.sin(theta)*u_skew + (1 - np.cos(theta))*(u_skew @ u_skew)
 
-    # Inertial acceleration (gravity, normalized) and magnetic field (given, normalized)
-    a0 = np.array([0, 0, 1])  
-    m0 = np.array([0.087117, 0.37923, -0.92119]) #TODO update this number
-
-    # Initial Estimate Vectors
-    v_hat_a = a0.copy() # .copy() copies the content into a new slot in memory
-    v_hat_m = m0.copy()
-
-    # Gains (adjust as needed) TODO adjust these guys to proper values
-    kp = 1.0     # Proportional gain for orientation correction
-    kI = 0.3     # Integral gain for bias correction
-    ka_nominal = 1.0     # Gain for accelerometer error
-    km_nominal = 1.0     # Gain for magnetometer error
-
-    # Expected values
-    expected_acc = 9.81
-    expected_mag = np.linalg.norm([4525.28449, 19699.18982, -47850.850686]) / 1000  # Convert nT to µT
-
-
-    # prev_time = data['t'][0] # Time step from the first entry, this will change dynamically in the loop  TODO decide to keep this or not
-    times = []
-    rotation_angles = []
-
-    #TEMP
-    m_corrected_array = [] # for graphing
-    ka_dynamic_list = [] # for graphng
-    km_dynamic_list = [] # for graphing
+        #FIXME make sure i am implemented correct
+        theta = norm_u * self.dT
+        u_normalized = u / norm_u
+        u_skew = skew(u)
+        R = np.eye(3) + np.sin(theta)*(u_skew /u_normalized) + (1 - np.cos(theta))*((u_skew @ u_skew) /( u_normalized ** 2))
+        return R
 
 
-    # Process the sensor data and update the Mahony filter
-    for index, row in data.iterrows():
-        #update dt to ensure it is consistent with the data TODO decide to keep this or not
-        # dt = t - prev_time if index != 0 else t
-        # prev_time = t
+    def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray)-> sm.UnitQuaternion:
+        """
+        Perform a single time step of the Mahony filter update.
+        This function takes in the current sensor measurements and updates the filter's state.
 
-        # Extract current measurements
-        t = row['t']
-        m = np.array([row['mx'], row['my'], row['mz']])
-        gyro = np.array([row['gyrox'], row['gyroy'], row['gyroz']])
-        a = np.array([row['ax'], row['ay'], row['az']])
-        
+        Arguments:
+            magnetometer_vector: 3D vector from the magnetometer (in inertial frame).
+            gyro_vector: 3D vector from the gyroscope (in body frame).
+            accel_vector: 3D vector from the accelerometer (in body frame).
+
+        Returns:
+            Updated orientation quaternion.
+        """                   
         # Normalize accelerometer measurements
         # If statements prevents divide by zero errors where a = [0, 0, 0] or m = [0, 0, 0]
-        if np.linalg.norm(a) != 0:
-            v_a = a / np.linalg.norm(a)
+        if np.linalg.norm(accel_vector) != 0:
+            v_a = accel_vector / np.linalg.norm(accel_vector)
         else:
-            v_a = a
+            v_a = accel_vector
 
         # Normalize magnetometer measurements while subtracting gravity component
         #gravity terms
-        g_inertial = np.array([0, 0, 1])
-        g_body = q.R @ g_inertial
+        
+        g_body = self.q.R @ self.g_inertial
         #projecting m onto g_body, this gives the part of m that is in the gravity direction
-        m_vertical = np.dot(m, g_body) # FIXME why multiply by g_body here? remove this? Make sure projection is correct here
-        m_corrected = m - m_vertical # FIXME, normalize m before?because m is not normalized here but m_vertical is normalized
+        m_vertical = np.dot(magnetometer_vector, g_body) # FIXME why multiply by g_body here? remove this? Make sure projection is correct here
+        m_corrected = magnetometer_vector - m_vertical # FIXME, normalize m before?because m is not normalized here but m_vertical is normalized
         if np.linalg.norm(m_corrected) != 0:
             v_m = m_corrected / np.linalg.norm(m_corrected)
         else:
             v_m = m_corrected
 
-        m_corrected_array.append(m_corrected.copy())  #TEMP
+            # #vvv --------------------------------------- Not Used --------------------------------------- vvv#
+            # # Calculate dynamic km and ka gains based on gaussian curve
+            # # compute sensor norms
+            # a_norm = np.linalg.norm(a)
+            # m_norm = np.linalg.norm(m_corrected)
+            # # Compute confidence measures (example using a Gaussian function)
+            # sigma_a = 0.0677649323574827  # adjusted based on expected variation
+            # sigma_m = 0.1466190886315767 # adjusted based on expected variation in µT
+            # # Confidence measures for accelerometer and magnetometer based on guassian distribution
+            # conf_acc = np.exp(-((a_norm - 9.81)**2) / (2 * sigma_a**2))
+            # conf_mag = np.exp(-((m_norm - expected_mag)**2) / (2 * sigma_m**2))
+            # # Scale the nominal gains dynamically
+            # ka_dynamic = ka_nominal * conf_acc
+            # km_dynamic = km_nominal * conf_mag
+            # ka_dynamic_list.append(ka_dynamic)  #TEMP for graphing
+            # km_dynamic_list.append(km_dynamic)  #TEMP for graphing
+            # #^^^ --------------------------------------- Not Used --------------------------------------- ^^^#
 
-        # #vvv --------------------------------------- Not Used --------------------------------------- vvv#
-        # # Calculate dynamic km and ka gains based on gaussian curve
-        # # compute sensor norms
-        # a_norm = np.linalg.norm(a)
-        # m_norm = np.linalg.norm(m_corrected)
-        # # Compute confidence measures (example using a Gaussian function)
-        # sigma_a = 0.0677649323574827  # adjusted based on expected variation
-        # sigma_m = 0.1466190886315767 # adjusted based on expected variation in µT
-        # # Confidence measures for accelerometer and magnetometer based on guassian distribution
-        # conf_acc = np.exp(-((a_norm - 9.81)**2) / (2 * sigma_a**2))
-        # conf_mag = np.exp(-((m_norm - expected_mag)**2) / (2 * sigma_m**2))
-        # # Scale the nominal gains dynamically
-        # ka_dynamic = ka_nominal * conf_acc
-        # km_dynamic = km_nominal * conf_mag
-        # ka_dynamic_list.append(ka_dynamic)  #TEMP for graphing
-        # km_dynamic_list.append(km_dynamic)  #TEMP for graphing
-        # #^^^ --------------------------------------- Not Used --------------------------------------- ^^^#
+            
+            # Compute the error signals from cross products: Innovation:
+        error_acc = np.cross(v_a, self.v_hat_a)
+        error_mag = np.cross(v_m, self.v_hat_m)
+        omega_mes = self.ka_nominal * error_acc + self.km_nominal * error_mag
 
-        
-        # Compute the error signals from cross products: Innovation:
-        error_acc = np.cross(v_a, v_hat_a)
-        error_mag = np.cross(v_m, v_hat_m)
-        omega_mes = ka_nominal * error_acc + km_nominal * error_mag
+            # Update the gyroscope bias estimate
+        self.bias = self.bias - self.kI * omega_mes * self.dT
+            
+            # Compute effective angular velocity for the update: 
+        u = gyro_vector - self.bias + self.kp * omega_mes
 
-        # Update the gyroscope bias estimate
-        b = b - kI * omega_mes * dt
-        
-        # Compute effective angular velocity for the update: 
-        u = gyro - b + kp * omega_mes
+            # Update the orientation quaternion using our update function
+        self.q = self.updateQuaternion(self.q, u)
 
-        # Update the orientation quaternion using our update function
-        q = updateQuaternion(q, u, dt)
+            # Update the estimated reference vectors using the Rodrigues formula
+        R_update = self.rodrigues(-u)
 
-        # Update the estimated reference vectors using the Rodrigues formula
-        R_update = rodrigues(-u, dt)
+        self.v_hat_a = R_update @ self.v_hat_a
+        self.v_hat_a = self.v_hat_a / np.linalg.norm(self.v_hat_a)
 
-        v_hat_a = R_update @ v_hat_a
-        v_hat_a = v_hat_a / np.linalg.norm(v_hat_a)
-
-        v_hat_m = R_update @ v_hat_m
-        v_hat_m = v_hat_m / np.linalg.norm(v_hat_m)
+        self.v_hat_m = R_update @ self.v_hat_m
+        self.v_hat_m = self.v_hat_m / np.linalg.norm(self.v_hat_m)
+        return self.q, m_corrected
 
 
-        # Store the current time and the rotation angle from the quaternion
-        times.append(t)
-        rotation_angles.append(quaternion_to_angle(q))
+if __name__ == "__main__":
+    do_real_time_visualization = True
+    # Load the CSV file
+    csv_data = pd.read_csv('question2_input.csv', header=None,
+                    names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
+
+   
+    # Expected values
+    # expected_acc = 9.81
+    # expected_mag = np.linalg.norm([4525.28449, 19699.18982, -47850.850686]) / 1000  # Convert nT to µT
+
+
+    # prev_time = data['t'][0] # Time step from the first entry, this will change dynamically in the loop  TODO decide to keep this or not
+    times = []
+    rotation_angles = []
+    m_corrected_array = [] # For graphing the corrected magnetometer data
+    time_step = 0.01
+    mahony_filter = MahonyFilter(dT=time_step, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=1.0)# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
+    
+    
+
+    if do_real_time_visualization:
+        model = mj.MjModel.from_xml_path(r"phone.xml")
+        mujoco_model_data = mj.MjData(model)
+        with mujoco.viewer.launch_passive(model, mujoco_model_data) as viewer:
+            viewer.cam.distance *= 300.0
+            joint_name = "free_joint"
+            joint_id = model.joint(joint_name).id
+            qpos_addr = model.jnt_qposadr[joint_id]
+            start_time = time.time()
+            time_simulated = 0.0
+            # Process the sensor data and update the Mahony filter
+            for index, row in csv_data.iterrows():
+                # Extract measurements from csv data. 
+                curr_time = row['t']
+                raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
+                raw_gyro_vector = np.array([row['gyrox'], row['gyroy'], row['gyroz']])
+                raw_accel_vector = np.array([row['ax'], row['ay'], row['az']])
+
+                # Perform the calculations. 
+                current_orientation_quat, corrected_mag_vector = mahony_filter.time_step(raw_mag_vector, raw_gyro_vector, raw_accel_vector)
+
+                # Save the results. 
+                times.append(curr_time)
+                rotation_angles.append(quaternion_to_angle(current_orientation_quat))
+                m_corrected_array.append(corrected_mag_vector)
+
+                # Update the model with the new orientation
+                time_simulated += time_step
+                mujoco_model_data.qpos[qpos_addr:qpos_addr+3] = [0,0,0]
+                mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = current_orientation_quat.data[0]
+                elasped_time = time.time() - start_time
+                mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
+                # Calculate the time to sleep
+                sleep_time = time_simulated - elasped_time# if this is negative it means that the calculations are taking longer than the time step they are simulating so the simulation will be delayed. 
+                if sleep_time > 0:
+                    time.sleep(sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
+                else:
+                    print(f"Warning: Simulation is running behind schedule by{-sleep_time} seconds")
+                viewer.sync()
+                
+
+    else:
+        # Process the sensor data and update the Mahony filter
+        for index, row in csv_data.iterrows():
+            # Extract measurements from csv data. 
+            curr_time = row['t']
+            raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
+            raw_gyro_vector = np.array([row['gyrox'], row['gyroy'], row['gyroz']])
+            raw_accel_vector = np.array([row['ax'], row['ay'], row['az']])
+
+            # Perform the calculations. 
+            current_orientation_quat, corrected_mag_vector = mahony_filter.time_step(raw_mag_vector, raw_gyro_vector, raw_accel_vector)
+
+            # Save the results. 
+            times.append(curr_time)
+            rotation_angles.append(quaternion_to_angle(current_orientation_quat))
+            m_corrected_array.append(corrected_mag_vector)
+   
+
+
+            
 
     # Compute and print the total rotation at the end of the dataset
     plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=True)
+    # plot_raw_data(m_corrected_array)
