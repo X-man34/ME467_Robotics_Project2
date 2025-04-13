@@ -299,9 +299,12 @@ if __name__ == "__main__":
     # Load the CSV file
     # csv_data = pd.read_csv('question2_input.csv', header=None,
     #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
-    csv_data = pd.read_csv('question3CustomCombined.csv', header=None,
+    csv_data_phoyphox = pd.read_csv('question3CustomCombined.csv', header=None,
                     names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     
+    csv_data_sensor_log = pd.read_csv('charlie_phone_data.csv')
+    csv_data_sensor_log = csv_data_sensor_log.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
+    csv_data_sensor_log[["ax", "ay", "az"]] = csv_data_sensor_log[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
 
    
     # Expected values
@@ -314,7 +317,7 @@ if __name__ == "__main__":
     rotation_angles = []
     m_corrected_array = [] # For graphing the corrected magnetometer data
     time_step = 0.01
-    mahony_filter = MahonyFilter(dT=time_step, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=1.0)# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
+    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=0.3, ka_nominal=1.0, km_nominal=1.0)# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
     
     
 
@@ -329,7 +332,7 @@ if __name__ == "__main__":
             start_time = time.time()
             time_simulated = 0.0
             # Process the sensor data and update the Mahony filter
-            for index, row in csv_data.iterrows():
+            for index, row in csv_data_sensor_log.iterrows():
                 # Extract measurements from csv data. 
                 curr_time = row['t']
                 raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
@@ -362,7 +365,7 @@ if __name__ == "__main__":
 
     else:
         # Process the sensor data and update the Mahony filter
-        for index, row in csv_data.iterrows():
+        for index, row in csv_data_sensor_log.iterrows():
             # Extract measurements from csv data. 
             curr_time = row['t']
             raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
