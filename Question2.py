@@ -159,8 +159,8 @@ class MahonyFilter:
         self.q = sm.UnitQuaternion()  # Initial orientation quaternion
         self.bias = np.zeros(3)  # Initial gyroscope bias
         self.m0 = true_m  # True magnetic field vector (inertial frame)
-        self.v_hat_a = np.array([0, 0, 1])  # Initial estimate of the accelerometer vector
-        self.v_hat_m = self.m0.copy()
+        self.v_hat_a = np.array([0, 0, 1])  # Initial estimate of gravitational acceleration
+        self.v_hat_m = true_m.copy()
 
     def updateQuaternion(self, q_old: sm.UnitQuaternion, u, **kwargs):
         """
@@ -217,6 +217,12 @@ class MahonyFilter:
         return R
 
 
+    def norm(self, vector: np.ndarray)-> np.ndarray:
+        if np.linalg.norm(vector) != 0:
+            return vector / np.linalg.norm(vector)
+        else:
+            return vector
+
     def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
         """
         Perform a single time step of the Mahony filter update.
@@ -231,12 +237,7 @@ class MahonyFilter:
             Updated orientation quaternion.
         """       
         time_step = kwargs.get('time_step', self.dT)  # Use the provided time step or the default one            
-        # Normalize accelerometer measurements
-        # If statements prevents divide by zero errors where a = [0, 0, 0] or m = [0, 0, 0]
-        if np.linalg.norm(accel_vector) != 0:
-            v_a = accel_vector / np.linalg.norm(accel_vector)
-        else:
-            v_a = accel_vector
+        v_a = self.norm(accel_vector)
 
         # Normalize magnetometer measurements while subtracting gravity component
         #gravity terms
@@ -245,10 +246,7 @@ class MahonyFilter:
         #projecting m onto g_body, this gives the part of m that is in the gravity direction
         m_vertical = np.dot(magnetometer_vector, g_body) # FIXME why multiply by g_body here? remove this? Make sure projection is correct here
         m_corrected = magnetometer_vector - m_vertical # FIXME, normalize m before?because m is not normalized here but m_vertical is normalized
-        if np.linalg.norm(m_corrected) != 0:
-            v_m = m_corrected / np.linalg.norm(m_corrected)
-        else:
-            v_m = m_corrected
+        v_m = self.norm(m_corrected)
 
             # #vvv --------------------------------------- Not Used --------------------------------------- vvv#
             # # Calculate dynamic km and ka gains based on gaussian curve
@@ -274,11 +272,13 @@ class MahonyFilter:
         error_mag = np.cross(v_m, self.v_hat_m)
         omega_mes = self.ka_nominal * error_acc + self.km_nominal * error_mag
 
-            # Update the gyroscope bias estimate
-        self.bias = self.bias - self.kI * omega_mes * time_step
+
             
-            # Compute effective angular velocity for the update: 
+        # Compute effective angular velocity for the update: 
         u = gyro_vector - self.bias + self.kp * omega_mes
+
+        # Update the gyroscope bias estimate
+        self.bias = self.bias - self.kI * omega_mes * time_step
 
             # Update the orientation quaternion using our update function
         self.q = self.updateQuaternion(self.q, u, time_step=time_step)
@@ -297,8 +297,11 @@ class MahonyFilter:
 if __name__ == "__main__":
     do_real_time_visualization = True # Set to True for real-time visualization, False for offline processing
     # Load the CSV file
-    csv_data = pd.read_csv('question2_input.csv', header=None,
+    # csv_data = pd.read_csv('question2_input.csv', header=None,
+    #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
+    csv_data = pd.read_csv('question3CustomCombined.csv', header=None,
                     names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
+    
 
    
     # Expected values
@@ -345,9 +348,10 @@ if __name__ == "__main__":
                 time_simulated += time_step
                 mujoco_model_data.qpos[qpos_addr:qpos_addr+3] = [0,0,0]
                 mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = current_orientation_quat.data[0]
-                elasped_time = time.time() - start_time
+                
                 mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
                 # Calculate the time to sleep
+                elasped_time = time.time() - start_time
                 sleep_time = time_simulated - elasped_time# if this is negative it means that the calculations are taking longer than the time step they are simulating so the simulation will be delayed. 
                 if sleep_time > 0:
                     time.sleep(sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
