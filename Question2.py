@@ -10,36 +10,6 @@ from scipy.spatial.transform import Rotation as R
 
 
 
-def set_fixed_vector_geom(model, data, geom_name, direction):
-    """
-    Orient a fixed-length (100) arrow geom to point in a direction from the origin of its parent frame.
-    Radius = 2 (as defined in the XML).
-    """
-    # Normalize direction to get just the orientation
-    norm = np.linalg.norm(direction)
-    if norm < 1e-8:
-        return  # Don't update if direction is nearly zero
-    
-    direction_unit = direction / norm
-
-    # Midpoint of arrow = half-length along direction from origin
-    length = 100
-    center = 0.5 * length * direction_unit
-
-    # Rotation: from z-axis to direction
-    z_axis = np.array([0, 0, 1])
-    rotvec = np.cross(z_axis, direction_unit)
-    angle = np.arccos(np.clip(np.dot(z_axis, direction_unit), -1.0, 1.0))
-
-    if np.linalg.norm(rotvec) < 1e-6:
-        quat = np.array([1, 0, 0, 0])  # No rotation needed
-    else:
-        rotvec = rotvec / np.linalg.norm(rotvec) * angle
-        quat = R.from_rotvec(rotvec).as_quat()
-    print(quat)
-    geom_id = model.geom(name='vec_arrow').id
-    model.geom_quat[geom_id] = quat
-
 # Helper Functions
 def quaternion_to_angle(q):
     """
@@ -270,7 +240,7 @@ class MahonyFilter:
         g_body = self.q.R.T @ self.g_inertial
         #projecting m onto g_body, this gives the part of m that is in the gravity direction
         m_vertical = (np.dot(magnetometer_vector, g_body) / (np.linalg.norm(g_body) ** 2)) * g_body
-        m_corrected = magnetometer_vector - m_vertical
+        m_corrected = magnetometer_vector - m_vertical 
         v_m = self.normalize(m_corrected)
 
         # Compute the error signals from cross products: Innovation:
@@ -290,11 +260,7 @@ class MahonyFilter:
         # Update the estimated reference vectors using the Rodrigues formula
         R_update = self.rodrigues(-u, time_step=time_step)
         self.v_hat_a = R_update @ self.v_hat_a
-
-        self.v_hat_a = self.v_hat_a / np.linalg.norm(self.v_hat_a)
-        print("VaHat: " + str(self.v_hat_a))
         self.v_hat_m = R_update @ self.v_hat_m
-        self.v_hat_m = self.v_hat_m / np.linalg.norm(self.v_hat_m)
         return self.q, m_corrected
 
 
@@ -334,6 +300,13 @@ if __name__ == "__main__":
             joint_name = "free_joint"
             joint_id = model.joint(joint_name).id
             qpos_addr = model.jnt_qposadr[joint_id]
+
+            v_hat_name = "v_a_hat_joint"
+            v_har_joint_id = model.joint(v_hat_name).id
+            v_hat_addr = model.jnt_qposadr[v_har_joint_id]
+
+
+
             start_time = time.time()
             time_simulated = 0.0
             # Process the sensor data and update the Mahony filter
@@ -356,7 +329,15 @@ if __name__ == "__main__":
                 time_simulated += time_step
                 mujoco_model_data.qpos[qpos_addr:qpos_addr+3] = [0,0,0]
                 mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = current_orientation_quat.data[0]
-                # set_fixed_vector_geom(model, mujoco_model_data, 'vec_arrow', mahony_filter.v_hat_a)
+
+
+                mujoco_model_data.qpos[v_hat_addr:v_hat_addr+3] = [0,0,0]
+                # mujoco_model_data.qpos[v_hat_addr+3:v_hat_addr+7] = current_orientation_quat.R @ mahony_filter.v_hat_a
+                print(current_orientation_quat.R)
+
+                
+
+
                 mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
                 # Calculate the time to sleep
                 elasped_time = time.time() - start_time

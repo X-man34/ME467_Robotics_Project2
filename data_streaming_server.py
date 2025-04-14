@@ -184,6 +184,7 @@ if __name__ == "__main__":
         joint_id = model.joint(joint_name).id
         qpos_addr = model.jnt_qposadr[joint_id]
 
+
         # Set up constants for data collection
         mahony_filter = MahonyFilter(data_collection_step, kp=1, kI=0, ka_nominal=0, km_nominal=0)
         fetch_rate = 0.125  # Fetch data every 0.125 seconds (8 Hz)

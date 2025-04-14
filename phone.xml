@@ -15,12 +15,14 @@
             <joint name="free_joint" type="free"/>
             <!-- Attach the mesh as a visual and collision object -->
             <geom type="mesh" mesh="phone_mesh" rgba="0.2 0.6 0.8 1" pos="-35 -135 -208" />
-            <geom name="vec_arrow"
-                type="cylinder"
-                size="2 50"  
-                rgba="1 0 0 1"
-                pos="0 0 0"
-                quat="1 0 0 0"/>
-                    </body>
+
+        </body>
+        <body name="accel_body" pos="0 0 0">
+            <joint name="v_a_hat_joint" type="free"/>
+            <!-- Attach the mesh as a visual and collision object -->
+            <geom name="vec_arrow" type="capsule" size="2 100" pos="0 0 -100"/>
+
+
+        </body>
     </worldbody>
 </mujoco>
