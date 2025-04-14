@@ -1,10 +1,11 @@
+## Question 2
 ### To integrate our orientation, we use this formula
 
 $q_{k+1} = e^{\frac{1}{2}  \Omega(u)\delta t}q_k$
 
 where:
 
-- $k = \frac{t}{\delta t}$ is the integration step (huh? wdym by integration step?)
+- $k = \frac{t}{\delta t}$ is the discrete index representing the current step in time
 
 - $e^{\Omega(u)\theta} = \cos(\|u\|\theta)\, I_4 + \sin(\|u\|\theta)\, \frac{\Omega(u)}{\|u\|}$, where we plug in $\theta = \frac{1}{2}\delta t$
 
@@ -22,7 +23,7 @@ where:
 
         - $\hat{v}_{a, k+1} = e^{-u \times \delta t} \hat{v}_{a,k}$, and $\hat{v}_{m,k+1} = e^{-u \times \delta t} \hat{v}_{m,k}$
 
-        - $e^{u \times \theta} = I_3 + sin(||u|| \theta) \frac{u_{\times}}{||u||} + (1 - cos(||u|| \theta )) \frac{u_{\times}^2}{||u||^2}$, where we plug in $\theta = \delta t$ and $u = -u$
+          - $e^{u_\times \theta} = I_3 + sin(||u|| \theta) \frac{u_{\times}}{||u||} + (1 - cos(||u|| \theta )) \frac{u_{\times}^2}{||u||^2}$, where we plug in $\theta = \delta t$ and $u = -u$
 
 ### Gains:
 
@@ -96,3 +97,4 @@ $k_m$: Gain promoting error correction using normalized magnetic field vector $v
   $
   \delta t = 0.01 \, \text{s}
   $
+
