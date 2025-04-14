@@ -185,7 +185,7 @@ if __name__ == "__main__":
         qpos_addr = model.jnt_qposadr[joint_id]
 
         # Set up constants for data collection
-        mahony_filter = MahonyFilter(data_collection_step)
+        mahony_filter = MahonyFilter(data_collection_step, kp=1, kI=0, ka_nominal=0, km_nominal=0)
         fetch_rate = 0.125  # Fetch data every 0.125 seconds (8 Hz)
         min_buffer_size = math.ceil(fetch_rate / data_collection_step )
         print(f"Minimum buffer size: {min_buffer_size} samples")

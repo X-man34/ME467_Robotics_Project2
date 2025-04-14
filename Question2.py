@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import time
 import mujoco as mj
 import mujoco.viewer
+
+
+
+
 # Helper Functions
 def quaternion_to_angle(q):
     """
@@ -150,7 +154,7 @@ class MahonyFilter:
     Mahony Filter for attitude estimation.
     """
     def __init__(self, dT, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=1.0, true_m=np.array([0.087117, 0.37923, -0.92119])):
-        self.g_inertial = np.array([0, 0, 1])
+        self.g_inertial = np.array([0, 0, 9.0665])
         self.dT = dT
         self.kp = kp
         self.kI = kI
@@ -180,15 +184,13 @@ class MahonyFilter:
         # Multiply update matrix by current quaternion (represented as a 4x1 vector)
         new_q_data = update_exp @ np.array(q_old.data).reshape(4, 1) # need to reshape so matrix mult works correctly
         new_q_data = new_q_data.flatten() # converts back to 1D array
-        new_q_data = new_q_data / np.linalg.norm(new_q_data)  # Normalize, just in case of small floating point errors. should be a unit quaternion anyway
-        # FIXME: Consider removine this extra normalization step to save compute time, we are actually kind of slow. 
         return sm.UnitQuaternion(new_q_data)
 
     def OMEGA(self, omega):
         """
         Construct the 4x4 Omega matrix from a 3D angular velocity vector omega.
         """
-        omega = np.asarray(omega).flatten() # always ensure it's a 1D array
+        omega = np.asarray(omega).flatten() # always ensure it's a 1D array       
         if omega.shape != (3,):
             raise ValueError("Input omega must be a 3-element vector.")
         return np.block([
@@ -217,7 +219,7 @@ class MahonyFilter:
         return R
 
 
-    def norm(self, vector: np.ndarray)-> np.ndarray:
+    def normalize(self, vector: np.ndarray)-> np.ndarray:
         if np.linalg.norm(vector) != 0:
             return vector / np.linalg.norm(vector)
         else:
@@ -237,60 +239,39 @@ class MahonyFilter:
             Updated orientation quaternion.
         """       
         time_step = kwargs.get('time_step', self.dT)  # Use the provided time step or the default one            
-        v_a = self.norm(accel_vector)
+        v_a = self.normalize(accel_vector)
 
         # Normalize magnetometer measurements while subtracting gravity component
         #gravity terms
         
-        g_body = self.q.R @ self.g_inertial
+        g_body = self.q.R.T @ self.g_inertial
         #projecting m onto g_body, this gives the part of m that is in the gravity direction
-        m_vertical = np.dot(magnetometer_vector, g_body) # FIXME why multiply by g_body here? remove this? Make sure projection is correct here
-        m_corrected = magnetometer_vector - m_vertical # FIXME, normalize m before?because m is not normalized here but m_vertical is normalized
-        v_m = self.norm(m_corrected)
+        m_vertical = (np.dot(magnetometer_vector, g_body) / (np.linalg.norm(g_body) ** 2)) * g_body
+        m_corrected = magnetometer_vector - m_vertical
+        v_m = self.normalize(m_corrected)
 
-            # #vvv --------------------------------------- Not Used --------------------------------------- vvv#
-            # # Calculate dynamic km and ka gains based on gaussian curve
-            # # compute sensor norms
-            # a_norm = np.linalg.norm(a)
-            # m_norm = np.linalg.norm(m_corrected)
-            # # Compute confidence measures (example using a Gaussian function)
-            # sigma_a = 0.0677649323574827  # adjusted based on expected variation
-            # sigma_m = 0.1466190886315767 # adjusted based on expected variation in µT
-            # # Confidence measures for accelerometer and magnetometer based on guassian distribution
-            # conf_acc = np.exp(-((a_norm - 9.81)**2) / (2 * sigma_a**2))
-            # conf_mag = np.exp(-((m_norm - expected_mag)**2) / (2 * sigma_m**2))
-            # # Scale the nominal gains dynamically
-            # ka_dynamic = ka_nominal * conf_acc
-            # km_dynamic = km_nominal * conf_mag
-            # ka_dynamic_list.append(ka_dynamic)  #TEMP for graphing
-            # km_dynamic_list.append(km_dynamic)  #TEMP for graphing
-            # #^^^ --------------------------------------- Not Used --------------------------------------- ^^^#
-
-            
-            # Compute the error signals from cross products: Innovation:
+        # Compute the error signals from cross products: Innovation:
         error_acc = np.cross(v_a, self.v_hat_a)
         error_mag = np.cross(v_m, self.v_hat_m)
-        omega_mes = self.ka_nominal * error_acc + self.km_nominal * error_mag
+        omega_mes = self.ka_nominal * error_acc + self.km_nominal * error_mag# FIXME we likly need to normalize the values used here, but there is some dought about it. 
 
-
-            
         # Compute effective angular velocity for the update: 
         u = gyro_vector - self.bias + self.kp * omega_mes
+
+        # Update the orientation quaternion using our update function
+        self.q = self.updateQuaternion(self.q, u, time_step=time_step)
 
         # Update the gyroscope bias estimate
         self.bias = self.bias - self.kI * omega_mes * time_step
 
-            # Update the orientation quaternion using our update function
-        self.q = self.updateQuaternion(self.q, u, time_step=time_step)
-
-            # Update the estimated reference vectors using the Rodrigues formula
+        # Update the estimated reference vectors using the Rodrigues formula
         R_update = self.rodrigues(-u, time_step=time_step)
-
         self.v_hat_a = R_update @ self.v_hat_a
-        self.v_hat_a = self.v_hat_a / np.linalg.norm(self.v_hat_a)
+
+        # self.v_hat_a = self.v_hat_a / np.linalg.norm(self.v_hat_a)
 
         self.v_hat_m = R_update @ self.v_hat_m
-        self.v_hat_m = self.v_hat_m / np.linalg.norm(self.v_hat_m)
+        # self.v_hat_m = self.v_hat_m / np.linalg.norm(self.v_hat_m)
         return self.q, m_corrected
 
 
@@ -305,6 +286,7 @@ if __name__ == "__main__":
     csv_data_sensor_log = pd.read_csv('charlie_phone_data.csv')
     csv_data_sensor_log = csv_data_sensor_log.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
     csv_data_sensor_log[["ax", "ay", "az"]] = csv_data_sensor_log[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
+    csv_data_sensor_log["az"] = csv_data_sensor_log["az"] * -1# Need to flip z axis to match the coord system for this project. 
 
    
     # Expected values
@@ -317,7 +299,7 @@ if __name__ == "__main__":
     rotation_angles = []
     m_corrected_array = [] # For graphing the corrected magnetometer data
     time_step = 0.01
-    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=0.3, ka_nominal=1.0, km_nominal=1.0)# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
+    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=0, ka_nominal=0, km_nominal=0)# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
     
     
 
