@@ -1,4 +1,4 @@
-import spatialmath as sm
+
 from spatialmath.base import skew, tr2angvec
 import numpy as np
 import pandas as pd
@@ -7,21 +7,33 @@ import time
 import mujoco as mj
 import mujoco.viewer
 from scipy.spatial.transform import Rotation as R
-from spatialmath import SO3
+from filters import MahonyFilter
 
 
+# for plotting v_a_hat etc
+def get_quat_from_vec(v_spatial)-> np.ndarray:
+    # Normalize
+    v_spatial = v_spatial / np.linalg.norm(v_spatial)
 
+    # Create a quaternion that rotates z-axis to v_spatial
+    z_axis = np.array([0, 0, -1])# z is negated because thats how we are defining it. 
+    rot_axis = np.cross(z_axis, v_spatial)
+    angle = np.arccos(np.clip(np.dot(z_axis, v_spatial), -1.0, 1.0))
 
-# Helper Functions
-def quaternion_to_angle(q):
-    """
-    Compute the rotation angle (in radians) from the UnitQuaternion q.
-    We use the rotation matrix representation and SpatialMath’s tr2angvec.
-    """
-    ang, axis = tr2angvec(q.R)
-    return ang
+    if np.linalg.norm(rot_axis) < 1e-6:
+        # Handle edge cases: already aligned or opposite
+        if np.dot(z_axis, v_spatial) > 0:
+            quat_v = np.array([1, 0, 0, 0])  # identity
+        else:
+            quat_v = np.array([0, 1, 0, 0])  # 180 deg around X (arbitrary orthogonal axis)
+    else:
+        rot_axis = rot_axis / np.linalg.norm(rot_axis)
+        quat_v = R.from_rotvec(angle * rot_axis).as_quat()  # [x, y, z, w]
 
-def plot_raw_data(m_corrected_array, csv_data):
+    # MuJoCo wants [w, x, y, z]
+    return np.roll(quat_v, 1)
+
+def plot_raw_data(csv_data: pd.DataFrame):
     # Define percent values for each sensor
     percent_value_acc = 0.12   
     percent_value_mag = 0.10  
@@ -46,7 +58,7 @@ def plot_raw_data(m_corrected_array, csv_data):
     for index, row in csv_data.iterrows():
         times_raw.append(row['t'])
         a = np.array([row['ax'], row['ay'], row['az']])
-        m = np.array(m_corrected_array[index])  # Use the corrected magnetometer data
+        m = np.array([row['mx'], row['my'], row['mz']])
         acc_norms.append(np.linalg.norm(a))
         mag_norms.append(np.linalg.norm(m))
         # print(m)
@@ -150,191 +162,47 @@ def plot_rotation_data(times, rotation_angles, title_suffix="", data_in_radians=
     #  Print the total rotation to the console
     print(f"Total rotation over the recorded period: {total_rotation:.3f} {display_unit}")    
     plt.show()
-    
-class MahonyFilter:
-    """
-    Mahony Filter for attitude estimation.
-    Pass in a tuple containing the initial gravity and initial magnetic vectors (in the body frame) to the "init_conditions" kwarg to apply the TRIAD algorithm and 
-    estimate the initial attitude of the object. 
-    """
-    def __init__(self, dT, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=.5, true_m=np.array([0.087117, 0.37923, -0.92119]), **kwargs):
-        self.g_inertial = np.array([0, 0, 9.0665])
-        self.dT = dT
-        self.kp = kp
-        self.kI = kI
-        self.ka_nominal = ka_nominal
-        self.km_nominal = km_nominal
-        self.q = sm.UnitQuaternion()  # Initial orientation quaternion
-        self.q.data = [[.2829, .3220, .2432, -.8702]]
-        self.bias = np.zeros(3)  # Initial gyroscope bias
-        self.m0 = true_m  # True magnetic field vector (inertial frame)
-        self.v_hat_a = np.array([0, 0, 1])  # Initial estimate of gravitational acceleration
-        self.v_hat_m = true_m.copy()
-        # if the user passes in some initial value for the gravity and magnetometer vectors, use the triad algorithm to come up with an estimate of the inital pose to prevent the filter from 
-        # trying to correct initially. 
-        if 'init_conditions' in kwargs:
-            self.q = self.get_inital_quaterion_TRIAD(kwargs['init_conditions'][0], kwargs['init_conditions'][1], self.g_inertial, self.m0)
-        
-
-    def updateQuaternion(self, q_old: sm.UnitQuaternion, u, **kwargs):
-        """
-        Update the given orientation quaternion q using the effective angular velocity u over time dt.
-        This implements the closed-form update:
-            q_{k+1} = exp((1/2)*Omega(u)*dt) * q_k.
-        Here, q is a spatialmath UnitQuaternion and u is a 3-element vector.
-        """
-        norm_u = np.linalg.norm(u)
-        theta = 0.5 * kwargs.get('time_step', self.dT)
-        if norm_u < 1e-8: # divide by 0 prevention
-            update_exp = np.eye(4)
-        else:
-            Omega_u = self.OMEGA(u)
-            update_exp = np.cos(norm_u*theta)*np.eye(4) + (np.sin(norm_u*theta)/norm_u)*Omega_u
-
-        # Multiply update matrix by current quaternion (represented as a 4x1 vector)
-        new_q_data = update_exp @ np.array(q_old.data).reshape(4, 1) # need to reshape so matrix mult works correctly
-        new_q_data = new_q_data.flatten() # converts back to 1D array
-        return sm.UnitQuaternion(new_q_data)
-
-    def OMEGA(self, omega):
-        """
-        Construct the 4x4 Omega matrix from a 3D angular velocity vector omega.
-        """
-        omega = np.asarray(omega).flatten() # always ensure it's a 1D array       
-        if omega.shape != (3,):
-            raise ValueError("Input omega must be a 3-element vector.")
-        return np.block([
-            [0,           -omega.reshape(1,3)],
-            [omega.reshape(3,1), -skew(omega)]
-        ])
-
-    def rodrigues(self,u, **kwargs):
-        """
-        Compute the rotation matrix for a rotation of angle theta = ||u||*dt about axis u/||u||,
-        using the Rodrigues formula.
-        """
-        norm_u = np.linalg.norm(u) 
-        if norm_u < 1e-8: # prevent division by zero errors
-            return np.eye(3)
-        theta = norm_u * kwargs.get('time_step', self.dT)
-        u_skew = skew(u)
-        R = np.eye(3) + np.sin(theta)*(u_skew / norm_u) + (1 - np.cos(theta))*((u_skew @ u_skew) /( norm_u ** 2))
-        return R
-
-
-    def normalize(self, vector: np.ndarray)-> np.ndarray:
-        if np.linalg.norm(vector) != 0:
-            return vector / np.linalg.norm(vector)
-        else:
-            return vector
-
-    def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
-        """
-        Perform a single time step of the Mahony filter update.
-        This function takes in the current sensor measurements and updates the filter's state.
-
-        Arguments:
-            magnetometer_vector: 3D vector from the magnetometer (in inertial frame).
-            gyro_vector: 3D vector from the gyroscope (in body frame).
-            accel_vector: 3D vector from the accelerometer (in body frame).
-
-        Returns:
-            Updated orientation quaternion.
-        """       
-        time_step = kwargs.get('time_step', self.dT)  # Use the provided time step or the default one            
-        v_a = self.normalize(accel_vector)
-
-        # Normalize magnetometer measurements while subtracting gravity component
-        #gravity terms
-        
-        g_body = self.q.R.T @ self.g_inertial
-        #projecting m onto g_body, this gives the part of m that is in the gravity direction
-        m_vertical = (np.dot(magnetometer_vector, g_body) / (np.linalg.norm(g_body) ** 2)) * g_body
-        m_corrected = magnetometer_vector - m_vertical 
-        v_m = self.normalize(m_corrected)
-
-        # Compute the error signals from cross products: Innovation:
-        error_acc = np.cross(v_a, self.v_hat_a)
-        error_mag = np.cross(v_m, self.v_hat_m)
-        omega_mes = self.ka_nominal * error_acc + self.km_nominal * error_mag# FIXME we likly need to normalize the values used here, but there is some dought about it. 
-
-        # Compute effective angular velocity for the update: 
-        u = gyro_vector - self.bias + self.kp * omega_mes
-
-        # Update the orientation quaternion using our update function
-        self.q = self.updateQuaternion(self.q, u, time_step=time_step)
-
-        # Update the gyroscope bias estimate
-        self.bias = self.bias - self.kI * omega_mes * time_step
-
-        # Update the estimated reference vectors using the Rodrigues formula
-        R_update = self.rodrigues(-u, time_step=time_step)
-        self.v_hat_a = R_update @ self.v_hat_a
-        self.v_hat_m = R_update @ self.v_hat_m
-        return self.q, m_corrected
-    
-
-    def get_inital_quaterion_TRIAD(self, body_gravity_vector, body_north_vector, actual_gravity_vector, actual_north_vector):
-        body_basis_1 = self.normalize(body_gravity_vector)
-        spatial_basis_1 = self.normalize(actual_gravity_vector)
-        body_basis_2 = self.normalize(np.cross(body_gravity_vector, body_north_vector))
-        spatial_basis_2 = self.normalize(np.cross(actual_gravity_vector, actual_north_vector))
-        body_basis_3 = np.cross(body_basis_2,body_basis_1)
-        spatial_basis_3 = np.cross(spatial_basis_2, spatial_basis_1)
-        # body_matrix = np.vstack((body_basis_1, body_basis_2, body_basis_3))
-        # spatial_matrix = np.vstack((spatial_basis_1, spatial_basis_2, spatial_basis_3))
-
-        body_matrix = np.column_stack((body_basis_1, body_basis_2, body_basis_3))
-        spatial_matrix = np.column_stack((spatial_basis_1, spatial_basis_2, spatial_basis_3))
-        rotation_matrix = spatial_matrix @ body_matrix.T
-        return SO3(rotation_matrix).UnitQuaternion()
-
-
-
 
 if __name__ == "__main__":
     # Load the CSV file
-    # csv_data = pd.read_csv('question2_input.csv', header=None,
-    #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
-    # csv_data = pd.read_csv('question3CustomCombined.csv', header=None,
-    #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
+    csv_data = pd.read_csv('csv_files\question2_input.csv', header=None,
+                    names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     
-    csv_data = pd.read_csv('charlie_still_weird.csv')
-    csv_data = csv_data.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
-    csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
-    csv_data["az"] = csv_data["az"] * -1# Need to flip z axis to match the coord system for this project. 
-
-   
-    # Expected values
-    # expected_acc = 9.81
-    # expected_mag = np.linalg.norm([4525.28449, 19699.18982, -47850.850686]) / 1000  # Convert nT to µT
-
-
-    # prev_time = data['t'][0] # Time step from the first entry, this will change dynamically in the loop  TODO decide to keep this or not
-    times = []
-    rotation_angles = []
-    m_corrected_array = [] # For graphing the corrected magnetometer data
-    time_step = 0.01
-
+    #Grab the initial values
     row = csv_data.iloc[0]
     raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
     raw_accel_vector = np.array([row['ax'], row['ay'], row['az']])
-    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=.3, ka_nominal=1, km_nominal=1, ainit_conditions=(raw_accel_vector, raw_mag_vector))# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
     
+    #Initialize variables
+    times = []
+    rotation_angles = []
+    time_step = 0.01
 
-    model = mj.MjModel.from_xml_path(r"phone.xml")
+    # Initalize the filter. This is where you change the gains. You don't have to pass in initial conditions, but it improves the estimate. 
+    # You can also ask it to use the TRIAD initial pose estimatior, but at the time of writing the implementation does not work and its not asked for question 2, so its left disabled. 
+    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=.3, ka_nominal=.8, km_nominal=.2, use_TRIAD_initial_attitude_estimation=False, init_conditions=(raw_accel_vector, raw_mag_vector))# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
+    
+    do_3D_vis = True
+    #Set up 3D visualization
+    model = mj.MjModel.from_xml_path(r"resources\\phone.xml")
     mujoco_model_data = mj.MjData(model)
+    # To not repeat code, if for some reason you don't want to watch the awsome visualization and just want to see the boring plots, it will open the viewer and them immediately close it. 
+    # I just don't know how else to do it without repeating the for loop outside the with statement. 
     with mujoco.viewer.launch_passive(model, mujoco_model_data) as viewer:
+        if not do_3D_vis:
+            viewer.close()
         viewer.cam.distance *= 300.0
         joint_name = "free_joint"
         joint_id = model.joint(joint_name).id
         qpos_addr = model.jnt_qposadr[joint_id]
 
-        v_hat_name = "v_a_hat_joint"
-        v_har_joint_id = model.joint(v_hat_name).id
-        v_hat_addr = model.jnt_qposadr[v_har_joint_id]
+        v_a_hat_joint_name = "v_a_hat_joint"
+        v_a_hat_joint_id = model.joint(v_a_hat_joint_name).id
+        qpos_addr_v_a_hat = model.jnt_qposadr[v_a_hat_joint_id]
 
-
+        v_m_hat_joint_name = "v_m_hat_joint"
+        v_m_hat_joint_id = model.joint(v_m_hat_joint_name).id
+        qpos_addr_v_m_hat = model.jnt_qposadr[v_m_hat_joint_id]
 
         start_time = time.time()
         time_simulated = 0.0
@@ -345,37 +213,41 @@ if __name__ == "__main__":
             raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
             raw_gyro_vector = np.array([row['gyrox'], row['gyroy'], row['gyroz']])
             raw_accel_vector = np.array([row['ax'], row['ay'], row['az']])
-            if time_simulated < 1:
-                mahony_filter.kp = 10
-            else:
-                mahony_filter.kp = 1
-            # Perform the calculations. 
-            current_orientation_quat, corrected_mag_vector = mahony_filter.time_step(raw_mag_vector, raw_gyro_vector, raw_accel_vector)
 
+            # Perform the calculations. 
+            current_orientation_quat = mahony_filter.time_step(raw_mag_vector, raw_gyro_vector, raw_accel_vector)
             # Save the results. 
             times.append(curr_time)
-            rotation_angles.append(quaternion_to_angle(current_orientation_quat))
-            m_corrected_array.append(corrected_mag_vector)
+            rotation_angles.append(tr2angvec(current_orientation_quat.R)[0])
+            if do_3D_vis:
+                # Update the model with the new orientation
+                #phone mesh
+                time_simulated += time_step
+                mujoco_model_data.qpos[qpos_addr:qpos_addr+3] = [0,0,0]
+                mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = current_orientation_quat.data[0]
 
-            # Update the model with the new orientation
-            time_simulated += time_step
-            mujoco_model_data.qpos[qpos_addr:qpos_addr+3] = [0,0,0]
-            mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = current_orientation_quat.data[0]
-
-
-            mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
-            # Calculate the time to sleep
-            elasped_time = time.time() - start_time
-            sleep_time = time_simulated - elasped_time# if this is negative it means that the calculations are taking longer than the time step they are simulating so the simulation will be delayed. 
-            if sleep_time > 0:
-                time.sleep(sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
-            else:
-                print(f"Warning: Simulation is running behind schedule by{-sleep_time} seconds")
-            viewer.sync()
+                # estimate vectors
+                mujoco_model_data.qpos[qpos_addr_v_a_hat:qpos_addr_v_a_hat+4] = get_quat_from_vec(mahony_filter.v_hat_a)
+                mujoco_model_data.qpos[qpos_addr_v_m_hat:qpos_addr_v_m_hat+4] = get_quat_from_vec(mahony_filter.v_hat_m)
+                
+                mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
+                
+                if not viewer.is_running():
+                    print("Viewer is closed. Exiting...")
+                    break
+                    
+                # Calculate the time to sleep
+                elasped_time = time.time() - start_time
+                sleep_time = time_simulated - elasped_time# if this is negative it means that the calculations are taking longer than the time step they are simulating so the simulation will be delayed. 
+                if sleep_time > 0:
+                    time.sleep(sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
+                else:
+                    print(f"Warning, simulation is delayed: {-sleep_time * 1000:.2f} ms")
+                viewer.sync()
 
 
             
 
     # Compute and print the total rotation at the end of the dataset
-    plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=True)
-    # plot_raw_data(m_corrected_array)
+    plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=False)
+    # plot_raw_data(csv_data)
