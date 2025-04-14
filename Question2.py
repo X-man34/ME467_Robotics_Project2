@@ -206,16 +206,9 @@ class MahonyFilter:
         norm_u = np.linalg.norm(u) 
         if norm_u < 1e-8: # prevent division by zero errors
             return np.eye(3)
-        # theta = norm_u * sekf.dT
-        # u_normalized = u / norm_u
-        # u_skew = skew(u_normalized)
-        # R = np.eye(3) + np.sin(theta)*u_skew + (1 - np.cos(theta))*(u_skew @ u_skew)
-
-        #FIXME make sure i am implemented correct
         theta = norm_u * kwargs.get('time_step', self.dT)
-        u_normalized = u / norm_u
         u_skew = skew(u)
-        R = np.eye(3) + np.sin(theta)*(u_skew /u_normalized) + (1 - np.cos(theta))*((u_skew @ u_skew) /( u_normalized ** 2))
+        R = np.eye(3) + np.sin(theta)*(u_skew / norm_u) + (1 - np.cos(theta))*((u_skew @ u_skew) /( norm_u ** 2))
         return R
 
 
@@ -268,10 +261,10 @@ class MahonyFilter:
         R_update = self.rodrigues(-u, time_step=time_step)
         self.v_hat_a = R_update @ self.v_hat_a
 
-        # self.v_hat_a = self.v_hat_a / np.linalg.norm(self.v_hat_a)
+        self.v_hat_a = self.v_hat_a / np.linalg.norm(self.v_hat_a)
 
         self.v_hat_m = R_update @ self.v_hat_m
-        # self.v_hat_m = self.v_hat_m / np.linalg.norm(self.v_hat_m)
+        self.v_hat_m = self.v_hat_m / np.linalg.norm(self.v_hat_m)
         return self.q, m_corrected
 
 
@@ -280,13 +273,13 @@ if __name__ == "__main__":
     # Load the CSV file
     # csv_data = pd.read_csv('question2_input.csv', header=None,
     #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
-    csv_data_phoyphox = pd.read_csv('question3CustomCombined.csv', header=None,
-                    names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
+    # csv_data = pd.read_csv('question3CustomCombined.csv', header=None,
+    #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     
-    csv_data_sensor_log = pd.read_csv('charlie_phone_data.csv')
-    csv_data_sensor_log = csv_data_sensor_log.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
-    csv_data_sensor_log[["ax", "ay", "az"]] = csv_data_sensor_log[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
-    csv_data_sensor_log["az"] = csv_data_sensor_log["az"] * -1# Need to flip z axis to match the coord system for this project. 
+    csv_data = pd.read_csv('charlie_phone_data.csv')
+    csv_data = csv_data.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
+    csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
+    csv_data["az"] = csv_data["az"] * -1# Need to flip z axis to match the coord system for this project. 
 
    
     # Expected values
@@ -299,7 +292,7 @@ if __name__ == "__main__":
     rotation_angles = []
     m_corrected_array = [] # For graphing the corrected magnetometer data
     time_step = 0.01
-    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=0, ka_nominal=0, km_nominal=0)# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
+    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=.3, ka_nominal=1, km_nominal=1)# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
     
     
 
@@ -314,7 +307,7 @@ if __name__ == "__main__":
             start_time = time.time()
             time_simulated = 0.0
             # Process the sensor data and update the Mahony filter
-            for index, row in csv_data_sensor_log.iterrows():
+            for index, row in csv_data.iterrows():
                 # Extract measurements from csv data. 
                 curr_time = row['t']
                 raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
@@ -347,7 +340,7 @@ if __name__ == "__main__":
 
     else:
         # Process the sensor data and update the Mahony filter
-        for index, row in csv_data_sensor_log.iterrows():
+        for index, row in csv_data.iterrows():
             # Extract measurements from csv data. 
             curr_time = row['t']
             raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
@@ -367,5 +360,5 @@ if __name__ == "__main__":
             
 
     # Compute and print the total rotation at the end of the dataset
-    plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=True)
+    plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=False)
     # plot_raw_data(m_corrected_array)
