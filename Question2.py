@@ -178,7 +178,7 @@ if __name__ == "__main__":
     rotation_angles = []
     time_step = 0.01
 
-    # Initalize the filter. This is where you change the gains. You don't have to pass in initial conditions, but it improves the estimate. 
+    # Initialize the filter. This is where you change the gains. You don't have to pass in initial conditions, but it improves the estimate. 
     # You can also ask it to use the TRIAD initial pose estimatior, but at the time of writing the implementation does not work and its not asked for question 2, so its left disabled. 
     mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=.3, ka_nominal=.8, km_nominal=.2, use_TRIAD_initial_attitude_estimation=False, init_conditions=(raw_accel_vector, raw_mag_vector))# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
     
@@ -245,9 +245,6 @@ if __name__ == "__main__":
                     print(f"Warning, simulation is delayed: {-sleep_time * 1000:.2f} ms")
                 viewer.sync()
 
-
-            
-
     # Compute and print the total rotation at the end of the dataset
-    plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=False)
+    plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=True)
     # plot_raw_data(csv_data)
