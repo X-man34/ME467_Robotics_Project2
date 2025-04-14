@@ -24,9 +24,9 @@
             <geom type="mesh" mesh="phone_mesh" rgba="0.2 0.6 0.8 1" pos="-35 -135 -208" />
 
             <!-- Body frame visualization-->
-            <!-- <geom name="body_x_axis" type="cylinder" fromto="0 0 0 100 0 0" size="2" rgba="1 0 0 1" contype="0" conaffinity="0"/>
+            <geom name="body_x_axis" type="cylinder" fromto="0 0 0 100 0 0" size="2" rgba="1 0 0 1" contype="0" conaffinity="0"/>
             <geom name="body_y_axis" type="cylinder" fromto="0 0 0 0 100 0" size="2" rgba="0 1 0 1" contype="0" conaffinity="0"/>
-            <geom name="body_z_axis" type="cylinder" fromto="0 0 0 0 0 100" size="2" rgba="0 0 1 1" contype="0" conaffinity="0"/> -->
+            <geom name="body_z_axis" type="cylinder" fromto="0 0 0 0 0 -100" size="2" rgba="0 0 1 1" contype="0" conaffinity="0"/>
 
 
             <body name="v_hat_a_body" pos="0 0 0">

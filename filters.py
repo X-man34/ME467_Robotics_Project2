@@ -98,6 +98,7 @@ class MahonyFilter:
         self.bias = np.zeros(3)  # Initial gyroscope bias
         self.m0 = true_m  # True magnetic field vector (inertial frame)
         self.m_corrected = true_m# expose for graphing. 
+        self.estimated_error = 0
 
         if use_TRIAD_initial_attitude_estimation and 'init_conditions' in kwargs:
             self.q = self.get_inital_quaterion_TRIAD(kwargs['init_conditions'][0], kwargs['init_conditions'][1], self.g_inertial, self.m0)
@@ -148,6 +149,9 @@ class MahonyFilter:
         R_update = rodrigues(-u, time_step)
         self.v_hat_a = R_update @ self.v_hat_a
         self.v_hat_m = R_update @ self.v_hat_m
+
+        #Update estimate of error for Q3
+        self.estimated_error = 1 - np.dot(v_a, self.v_hat_a) + 1 - np.dot(v_m, self.v_hat_m)
         return self.q
 
 

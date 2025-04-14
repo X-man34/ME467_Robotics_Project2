@@ -169,14 +169,22 @@ def plot_rotation_data(times, rotation_angles, title_suffix="", data_in_radians=
 
 if __name__ == "__main__":
     # Load the CSV file
-    csv_data = pd.read_csv('csv_files\question2_input.csv', header=None,
-                    names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
+    # csv_data = pd.read_csv('csv_files\question2_input.csv', header=None,
+    #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     
+
+    
+    csv_data = pd.read_csv('csv_files\charlie_phone_data.csv')
+    csv_data = csv_data.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
+    csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
+    csv_data["az"] = csv_data["az"] * -1# Need to flip z axis to match the coord system for this project. 
     #Grab the initial values
     row = csv_data.iloc[0]
     raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
     raw_accel_vector = np.array([row['ax'], row['ay'], row['az']])
     
+
+
     #Initialize variables
     times = []
     rotation_angles = []
@@ -184,7 +192,7 @@ if __name__ == "__main__":
 
     # Initialize the filter. This is where you change the gains. You don't have to pass in initial conditions, but it improves the estimate. 
     # You can also ask it to use the TRIAD initial pose estimatior, but at the time of writing the implementation does not work and its not asked for question 2, so its left disabled. 
-    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=.3, ka_nominal=0, km_nominal=1, use_TRIAD_initial_attitude_estimation=False, init_conditions=(raw_accel_vector, raw_mag_vector))# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
+    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=.3, ka_nominal=1, km_nominal=1, use_TRIAD_initial_attitude_estimation=False, init_conditions=(raw_accel_vector, raw_mag_vector))# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
     
     do_3D_vis = True
     #Set up 3D visualization
@@ -234,8 +242,8 @@ if __name__ == "__main__":
                 # TODO more fun visualization, it seems like v_hat_m is not pointing in the right direction. 
                 # estimate vectors
                 # mujoco_model_data.qpos[qpos_addr_v_a_hat:qpos_addr_v_a_hat+4] = get_quat_from_vec(mahony_filter.v_hat_a)
-                mujoco_model_data.qpos[qpos_addr_v_m_hat:qpos_addr_v_m_hat+4] = get_quat_from_vec(mahony_filter.v_hat_m, negate_z=False)
-                mujoco_model_data.qpos[qpos_addr_v_a_hat:qpos_addr_v_a_hat+4] = get_quat_from_vec(mahony_filter.m_corrected, negate_z=False)
+                # mujoco_model_data.qpos[qpos_addr_v_m_hat:qpos_addr_v_m_hat+4] = get_quat_from_vec(mahony_filter.v_hat_m, negate_z=False)
+                # mujoco_model_data.qpos[qpos_addr_v_a_hat:qpos_addr_v_a_hat+4] = get_quat_from_vec(mahony_filter.m_corrected, negate_z=False)
                 mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
                 
                 if not viewer.is_running():
