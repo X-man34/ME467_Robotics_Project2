@@ -130,3 +130,5 @@ if (final_quaternion == correct_quaternion):
     print("Final quaternion is correct!")
 else:
     print("We are wrong, or there is a floating point error in the comparison. ")
+
+print((np.array(one @ two @ three @ four)))

@@ -18,14 +18,69 @@ The TRIAD (Tri-Axial Attitude Determination) method estimates orientation using 
 
 ## Question 1
 
-In question 1 we implement a naïve gyroscope integration in order to estimate orientation with a set of given inputs. These inputs simulate perfect gyroscope data with no bias or drift. 
+In question 1 we implement a naïve gyroscope integration in order to estimate orientation with a set of given inputs. These inputs simulate perfect gyroscope data with no bias or drift.
+
+The given inputs can be represented by various rotation matrixes.
+
+1. $R_{x,\frac{\pi}{4}}$ -  Rotate about the **x-axis** by $\frac{\pi}{4}$ radians  
+2. $R_{z,\frac{\pi}{4}}$ - Rotate about the **z-axis** by $\frac{\pi}{4}$ radians  
+3. $R_{x,-\frac{\pi}{4}}$ - Rotate about the **x-axis** by $-\frac{\pi}{4}$ radians  
+4. $R_{z,-\frac{\pi}{4}}$ - Rotate about the **z-axis** by $-\frac{\pi}{4}$ radians  
+
+If we multiply all these rotation matrices we can see our expected result:
+
+$R_{x,\frac{\pi}{4}} R_{z,\frac{\pi}{4}} R_{x,-\frac{\pi}{4}} R_{z,-\frac{\pi}{4}} = \begin{bmatrix}
+0.8536 & 0.1464 & -0.5000 \\
+-0.2500 & 0.9571 & -0.1464 \\
+0.4571 & 0.2500 & 0.8536
+\end{bmatrix}$
+
+Which corresponds with this quaternion:
+
+$q_{final}=0.9571 <  0.1036, -0.2500, -0.1036 >$
+
+### Results
+
+$q(1)=0.9571 <  0.1036, -0.2500, -0.1036 >$
+
+We simulated this rotation over time and obtained the exact same final orientation as expected from the matrix multiplication. This verifies that our implementation of quaternion integration is correct. You can see a visualization of this rotation in Fig. 1.1 in the fig file under `fig\Fig 1-1.mp4`.
+
+### Does it hold that $q(0) = q(1)$?
+
+No, it does not hold that $q(0) = q(1)$. We can see from our results that:
+
+$q(0)=1 <  0, 0, 0 >$
+
+$q(1)=0.9571 <  0.1036, -0.2500, -0.1036 >$
+
+This also makes conceptual sense because rotations in 3D space are not commutative.
 
 ## Question 2: Mahony Filter Implementation
 
-In order to estimate the phone's orientation over time, we implemented the Mahony Filter. The Mahony Filter uses gyroscope data to integrate our orientation and also applies correction to the gyroscope based on data from the accelerometer and magnetometer measurements, which localize the phone's orientation based on gravity and magnetic north.
+In question 2 we implement a Mahony filter to estimate a phone's orientation over time with a given csv file containing gyroscope, accelerometer, and magnetometer data over time. The motion consists of a phone that is still for a few seconds, and is then picked up and rotated around randomly, but slowly and smoothly, and then set back down.
+
+We visualized this motion using MuJoCo that can be seen in 
+
+### Results
+
+To calculate the rotation angle over time, we convert the estimated orientation quaternion at each time step into an axis-angle representation. We then extract the angle component and plot it with respect to time.
+
+Figures 2-1a and 2-1b below show the rotation angle over time in radians and degrees, respectively. The phone remains still at the beginning, is then slowly rotated in multiple directions, and eventually returns to rest.
+
+Over the course of the motion, the phone rotated a total of approximately 8,572 radians, or 491,165 degrees. This total includes all incremental rotations.
+
+![Figure 2-1 Rads](fig/Fig_2-1a_(rad).png)
+*Fig 2-1a: Estimated rotation angle over time (radians)*
+
+![Figure 2-1 Degrees](fig/Fig_2-1b_(degree).png)
+*Fig 2-1b: Estimated rotation angle over time (degrees)*
+
+### Observations
+
+Doing this project, we noticed some quirks of the Mahony filter.
 
 flipping on certain edges or not
 drifting to magnetic north
 how gains have changed things
 confinming answers with rotated estimate - vhata in the spatial
-3D visualzation
+3D visualzation.
