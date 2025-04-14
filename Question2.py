@@ -153,7 +153,7 @@ class MahonyFilter:
     """
     Mahony Filter for attitude estimation.
     """
-    def __init__(self, dT, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=1.0, true_m=np.array([0.087117, 0.37923, -0.92119])):
+    def __init__(self, dT, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=.5, true_m=np.array([0.087117, 0.37923, -0.92119])):
         self.g_inertial = np.array([0, 0, 9.0665])
         self.dT = dT
         self.kp = kp
@@ -161,6 +161,7 @@ class MahonyFilter:
         self.ka_nominal = ka_nominal
         self.km_nominal = km_nominal
         self.q = sm.UnitQuaternion()  # Initial orientation quaternion
+        # self.q.data = [[.6265, -.0974, .0875, .7684]]
         self.bias = np.zeros(3)  # Initial gyroscope bias
         self.m0 = true_m  # True magnetic field vector (inertial frame)
         self.v_hat_a = np.array([0, 0, 1])  # Initial estimate of gravitational acceleration
@@ -272,7 +273,7 @@ if __name__ == "__main__":
     # csv_data = pd.read_csv('question3CustomCombined.csv', header=None,
     #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     
-    csv_data = pd.read_csv('charlie_phone_540_slow.csv')
+    csv_data = pd.read_csv('charlie_phone_data.csv')
     csv_data = csv_data.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
     csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
     csv_data["az"] = csv_data["az"] * -1# Need to flip z axis to match the coord system for this project. 
@@ -329,13 +330,7 @@ if __name__ == "__main__":
                 time_simulated += time_step
                 mujoco_model_data.qpos[qpos_addr:qpos_addr+3] = [0,0,0]
                 mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = current_orientation_quat.data[0]
-
-
-                mujoco_model_data.qpos[v_hat_addr:v_hat_addr+3] = [0,0,0]
-                # mujoco_model_data.qpos[v_hat_addr+3:v_hat_addr+7] = current_orientation_quat.R @ mahony_filter.v_hat_a
-                print(current_orientation_quat.R)
-
-                
+              
 
 
                 mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
@@ -343,7 +338,7 @@ if __name__ == "__main__":
                 elasped_time = time.time() - start_time
                 sleep_time = time_simulated - elasped_time# if this is negative it means that the calculations are taking longer than the time step they are simulating so the simulation will be delayed. 
                 if sleep_time > 0:
-                    time.sleep(2 * sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
+                    time.sleep(sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
                 else:
                     print(f"Warning: Simulation is running behind schedule by{-sleep_time} seconds")
                 viewer.sync()
