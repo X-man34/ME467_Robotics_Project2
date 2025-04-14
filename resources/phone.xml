@@ -1,0 +1,42 @@
+<mujoco model="phone_model">
+    <compiler angle="radian" coordinate="local" />
+
+
+    <option gravity="0 0 0" />
+
+    <asset>
+        <!-- Load the STL mesh -->
+        <mesh name="phone_mesh" file="iphone8.stl" />
+    </asset>
+
+    <worldbody>
+        <geom name="ground" type="plane" size="500 500 0.1" pos="0 0 -250" rgba="0.5 0.5 0.5 1" contype="0" conaffinity="0" />
+        <!-- RGB coordinate frame at the origin -->
+        <geom name="x_axis" type="cylinder" fromto="0 0 0 50 0 0" size="2" rgba="1 0 0 1" contype="0" conaffinity="0"/>
+        <geom name="y_axis" type="cylinder" fromto="0 0 0 0 50 0" size="2" rgba="0 1 0 1" contype="0" conaffinity="0"/>
+        <geom name="z_axis" type="cylinder" fromto="0 0 0 0 0 -50" size="2" rgba="0 0 1 1" contype="0" conaffinity="0"/>
+
+
+        <body name="phone" pos="0 0 0">
+            <joint name="free_joint" type="free"/>
+            <!-- Attach the mesh as a visual and collision object -->
+            <geom type="mesh" mesh="phone_mesh" rgba="0.2 0.6 0.8 1" pos="-35 -135 -208" />
+
+            <!-- Body frame visualization-->
+            <!-- <geom name="body_x_axis" type="cylinder" fromto="0 0 0 100 0 0" size="2" rgba="1 0 0 1" contype="0" conaffinity="0"/>
+            <geom name="body_y_axis" type="cylinder" fromto="0 0 0 0 100 0" size="2" rgba="0 1 0 1" contype="0" conaffinity="0"/>
+            <geom name="body_z_axis" type="cylinder" fromto="0 0 0 0 0 100" size="2" rgba="0 0 1 1" contype="0" conaffinity="0"/> -->
+
+
+            <body name="v_hat_a_body" pos="0 0 0">
+                <joint name="v_a_hat_joint" type="ball"/>
+                <geom name="v_a_hat" type="cylinder" fromto="0 0 0 0 0 100" size="2" rgba="0 .67 1 1" contype="0" conaffinity="0"/>
+            </body>
+
+            <body name="v_hat_m_body" pos="0 0 0">
+                <joint name="v_m_hat_joint" type="ball"/>
+                <geom name="v_m_hat" type="cylinder" fromto="0 0 0 0 0 100" size="2" rgba=".909 .658823 .30980 .729" contype="0" conaffinity="0"/>
+            </body>
+        </body>
+    </worldbody>
+</mujoco>
