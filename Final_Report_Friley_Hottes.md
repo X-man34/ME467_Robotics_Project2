@@ -59,7 +59,11 @@ This also makes conceptual sense because rotations in 3D space are not commutati
 
 In question 2 we implement a Mahony filter to estimate a phone's orientation over time with a given csv file containing gyroscope, accelerometer, and magnetometer data over time. The motion consists of a phone that is still for a few seconds, and is then picked up and rotated around randomly, but slowly and smoothly, and then set back down.
 
-We visualized this motion using MuJoCo that can be seen in 
+We tuned out K values to be the following based on trial and error.
+
+$k_p=1, k_I=.3, k_a=.8, k_m=.2$
+
+We visualized this motion using MuJoCo that can be seen in `fig\Fig_2-2.mp4`
 
 ### Results
 
@@ -84,3 +88,4 @@ drifting to magnetic north
 how gains have changed things
 confinming answers with rotated estimate - vhata in the spatial
 3D visualzation.
+put a magnet by the phone, can be seen when we do 3D visualization
