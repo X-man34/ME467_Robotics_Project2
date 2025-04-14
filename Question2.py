@@ -7,6 +7,8 @@ import time
 import mujoco as mj
 import mujoco.viewer
 from scipy.spatial.transform import Rotation as R
+from spatialmath import SO3
+
 
 
 
@@ -152,8 +154,10 @@ def plot_rotation_data(times, rotation_angles, title_suffix="", data_in_radians=
 class MahonyFilter:
     """
     Mahony Filter for attitude estimation.
+    Pass in a tuple containing the initial gravity and initial magnetic vectors (in the body frame) to the "init_conditions" kwarg to apply the TRIAD algorithm and 
+    estimate the initial attitude of the object. 
     """
-    def __init__(self, dT, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=.5, true_m=np.array([0.087117, 0.37923, -0.92119])):
+    def __init__(self, dT, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=.5, true_m=np.array([0.087117, 0.37923, -0.92119]), **kwargs):
         self.g_inertial = np.array([0, 0, 9.0665])
         self.dT = dT
         self.kp = kp
@@ -161,11 +165,16 @@ class MahonyFilter:
         self.ka_nominal = ka_nominal
         self.km_nominal = km_nominal
         self.q = sm.UnitQuaternion()  # Initial orientation quaternion
-        # self.q.data = [[.6265, -.0974, .0875, .7684]]
+        self.q.data = [[.2829, .3220, .2432, -.8702]]
         self.bias = np.zeros(3)  # Initial gyroscope bias
         self.m0 = true_m  # True magnetic field vector (inertial frame)
         self.v_hat_a = np.array([0, 0, 1])  # Initial estimate of gravitational acceleration
         self.v_hat_m = true_m.copy()
+        # if the user passes in some initial value for the gravity and magnetometer vectors, use the triad algorithm to come up with an estimate of the inital pose to prevent the filter from 
+        # trying to correct initially. 
+        if 'init_conditions' in kwargs:
+            self.q = self.get_inital_quaterion_TRIAD(kwargs['init_conditions'][0], kwargs['init_conditions'][1], self.g_inertial, self.m0)
+        
 
     def updateQuaternion(self, q_old: sm.UnitQuaternion, u, **kwargs):
         """
@@ -263,17 +272,34 @@ class MahonyFilter:
         self.v_hat_a = R_update @ self.v_hat_a
         self.v_hat_m = R_update @ self.v_hat_m
         return self.q, m_corrected
+    
+
+    def get_inital_quaterion_TRIAD(self, body_gravity_vector, body_north_vector, actual_gravity_vector, actual_north_vector):
+        body_basis_1 = self.normalize(body_gravity_vector)
+        spatial_basis_1 = self.normalize(actual_gravity_vector)
+        body_basis_2 = self.normalize(np.cross(body_gravity_vector, body_north_vector))
+        spatial_basis_2 = self.normalize(np.cross(actual_gravity_vector, actual_north_vector))
+        body_basis_3 = np.cross(body_basis_2,body_basis_1)
+        spatial_basis_3 = np.cross(spatial_basis_2, spatial_basis_1)
+        # body_matrix = np.vstack((body_basis_1, body_basis_2, body_basis_3))
+        # spatial_matrix = np.vstack((spatial_basis_1, spatial_basis_2, spatial_basis_3))
+
+        body_matrix = np.column_stack((body_basis_1, body_basis_2, body_basis_3))
+        spatial_matrix = np.column_stack((spatial_basis_1, spatial_basis_2, spatial_basis_3))
+        rotation_matrix = spatial_matrix @ body_matrix.T
+        return SO3(rotation_matrix).UnitQuaternion()
+
+
 
 
 if __name__ == "__main__":
-    do_real_time_visualization = True # Set to True for real-time visualization, False for offline processing
     # Load the CSV file
     # csv_data = pd.read_csv('question2_input.csv', header=None,
     #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     # csv_data = pd.read_csv('question3CustomCombined.csv', header=None,
     #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     
-    csv_data = pd.read_csv('charlie_phone_data.csv')
+    csv_data = pd.read_csv('charlie_still_weird.csv')
     csv_data = csv_data.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
     csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
     csv_data["az"] = csv_data["az"] * -1# Need to flip z axis to match the coord system for this project. 
@@ -289,62 +315,29 @@ if __name__ == "__main__":
     rotation_angles = []
     m_corrected_array = [] # For graphing the corrected magnetometer data
     time_step = 0.01
-    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=.3, ka_nominal=1, km_nominal=1)# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
+
+    row = csv_data.iloc[0]
+    raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
+    raw_accel_vector = np.array([row['ax'], row['ay'], row['az']])
+    mahony_filter = MahonyFilter(dT=time_step, kp=1, kI=.3, ka_nominal=1, km_nominal=1, ainit_conditions=(raw_accel_vector, raw_mag_vector))# dont' need to specify these values as I "conveniently" set them as the defaults, but they are here for code readability, except for dT, that is required. 
     
-    
 
-    if do_real_time_visualization:
-        model = mj.MjModel.from_xml_path(r"phone.xml")
-        mujoco_model_data = mj.MjData(model)
-        with mujoco.viewer.launch_passive(model, mujoco_model_data) as viewer:
-            viewer.cam.distance *= 300.0
-            joint_name = "free_joint"
-            joint_id = model.joint(joint_name).id
-            qpos_addr = model.jnt_qposadr[joint_id]
+    model = mj.MjModel.from_xml_path(r"phone.xml")
+    mujoco_model_data = mj.MjData(model)
+    with mujoco.viewer.launch_passive(model, mujoco_model_data) as viewer:
+        viewer.cam.distance *= 300.0
+        joint_name = "free_joint"
+        joint_id = model.joint(joint_name).id
+        qpos_addr = model.jnt_qposadr[joint_id]
 
-            v_hat_name = "v_a_hat_joint"
-            v_har_joint_id = model.joint(v_hat_name).id
-            v_hat_addr = model.jnt_qposadr[v_har_joint_id]
+        v_hat_name = "v_a_hat_joint"
+        v_har_joint_id = model.joint(v_hat_name).id
+        v_hat_addr = model.jnt_qposadr[v_har_joint_id]
 
 
 
-            start_time = time.time()
-            time_simulated = 0.0
-            # Process the sensor data and update the Mahony filter
-            for index, row in csv_data.iterrows():
-                # Extract measurements from csv data. 
-                curr_time = row['t']
-                raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
-                raw_gyro_vector = np.array([row['gyrox'], row['gyroy'], row['gyroz']])
-                raw_accel_vector = np.array([row['ax'], row['ay'], row['az']])
-
-                # Perform the calculations. 
-                current_orientation_quat, corrected_mag_vector = mahony_filter.time_step(raw_mag_vector, raw_gyro_vector, raw_accel_vector)
-
-                # Save the results. 
-                times.append(curr_time)
-                rotation_angles.append(quaternion_to_angle(current_orientation_quat))
-                m_corrected_array.append(corrected_mag_vector)
-
-                # Update the model with the new orientation
-                time_simulated += time_step
-                mujoco_model_data.qpos[qpos_addr:qpos_addr+3] = [0,0,0]
-                mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = current_orientation_quat.data[0]
-              
-
-
-                mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
-                # Calculate the time to sleep
-                elasped_time = time.time() - start_time
-                sleep_time = time_simulated - elasped_time# if this is negative it means that the calculations are taking longer than the time step they are simulating so the simulation will be delayed. 
-                if sleep_time > 0:
-                    time.sleep(sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
-                else:
-                    print(f"Warning: Simulation is running behind schedule by{-sleep_time} seconds")
-                viewer.sync()
-                
-
-    else:
+        start_time = time.time()
+        time_simulated = 0.0
         # Process the sensor data and update the Mahony filter
         for index, row in csv_data.iterrows():
             # Extract measurements from csv data. 
@@ -352,7 +345,10 @@ if __name__ == "__main__":
             raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])
             raw_gyro_vector = np.array([row['gyrox'], row['gyroy'], row['gyroz']])
             raw_accel_vector = np.array([row['ax'], row['ay'], row['az']])
-
+            if time_simulated < 1:
+                mahony_filter.kp = 10
+            else:
+                mahony_filter.kp = 1
             # Perform the calculations. 
             current_orientation_quat, corrected_mag_vector = mahony_filter.time_step(raw_mag_vector, raw_gyro_vector, raw_accel_vector)
 
@@ -360,7 +356,22 @@ if __name__ == "__main__":
             times.append(curr_time)
             rotation_angles.append(quaternion_to_angle(current_orientation_quat))
             m_corrected_array.append(corrected_mag_vector)
-   
+
+            # Update the model with the new orientation
+            time_simulated += time_step
+            mujoco_model_data.qpos[qpos_addr:qpos_addr+3] = [0,0,0]
+            mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = current_orientation_quat.data[0]
+
+
+            mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
+            # Calculate the time to sleep
+            elasped_time = time.time() - start_time
+            sleep_time = time_simulated - elasped_time# if this is negative it means that the calculations are taking longer than the time step they are simulating so the simulation will be delayed. 
+            if sleep_time > 0:
+                time.sleep(sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
+            else:
+                print(f"Warning: Simulation is running behind schedule by{-sleep_time} seconds")
+            viewer.sync()
 
 
             
