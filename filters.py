@@ -97,7 +97,8 @@ class MahonyFilter:
         self.q = sm.UnitQuaternion()  # Initial orientation quaternion
         self.bias = np.zeros(3)  # Initial gyroscope bias
         self.m0 = true_m  # True magnetic field vector (inertial frame)
-        
+        self.m_corrected = true_m# expose for graphing. 
+
         if use_TRIAD_initial_attitude_estimation and 'init_conditions' in kwargs:
             self.q = self.get_inital_quaterion_TRIAD(kwargs['init_conditions'][0], kwargs['init_conditions'][1], self.g_inertial, self.m0)
         self.v_hat_a = normalize(kwargs.get("init_conditions", (np.array([0, 0, 1]),))[0])  # Initial estimate of gravitational acceleration
@@ -126,8 +127,8 @@ class MahonyFilter:
         g_body = self.q.R.T @ self.g_inertial
         #projecting m onto g_body, this gives the part of m that is in the gravity direction
         m_vertical = (np.dot(magnetometer_vector, g_body) / (np.linalg.norm(g_body) ** 2)) * g_body
-        m_corrected = magnetometer_vector - m_vertical 
-        v_m = normalize(m_corrected)
+        self.m_corrected = magnetometer_vector - m_vertical 
+        v_m = normalize(self.m_corrected)
 
         # Compute the error signals from cross products: Innovation:
         error_acc = np.cross(v_a, self.v_hat_a)
