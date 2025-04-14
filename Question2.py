@@ -6,9 +6,39 @@ import matplotlib.pyplot as plt
 import time
 import mujoco as mj
 import mujoco.viewer
+from scipy.spatial.transform import Rotation as R
 
 
 
+def set_fixed_vector_geom(model, data, geom_name, direction):
+    """
+    Orient a fixed-length (100) arrow geom to point in a direction from the origin of its parent frame.
+    Radius = 2 (as defined in the XML).
+    """
+    # Normalize direction to get just the orientation
+    norm = np.linalg.norm(direction)
+    if norm < 1e-8:
+        return  # Don't update if direction is nearly zero
+    
+    direction_unit = direction / norm
+
+    # Midpoint of arrow = half-length along direction from origin
+    length = 100
+    center = 0.5 * length * direction_unit
+
+    # Rotation: from z-axis to direction
+    z_axis = np.array([0, 0, 1])
+    rotvec = np.cross(z_axis, direction_unit)
+    angle = np.arccos(np.clip(np.dot(z_axis, direction_unit), -1.0, 1.0))
+
+    if np.linalg.norm(rotvec) < 1e-6:
+        quat = np.array([1, 0, 0, 0])  # No rotation needed
+    else:
+        rotvec = rotvec / np.linalg.norm(rotvec) * angle
+        quat = R.from_rotvec(rotvec).as_quat()
+    print(quat)
+    geom_id = model.geom(name='vec_arrow').id
+    model.geom_quat[geom_id] = quat
 
 # Helper Functions
 def quaternion_to_angle(q):
@@ -262,7 +292,7 @@ class MahonyFilter:
         self.v_hat_a = R_update @ self.v_hat_a
 
         self.v_hat_a = self.v_hat_a / np.linalg.norm(self.v_hat_a)
-
+        print("VaHat: " + str(self.v_hat_a))
         self.v_hat_m = R_update @ self.v_hat_m
         self.v_hat_m = self.v_hat_m / np.linalg.norm(self.v_hat_m)
         return self.q, m_corrected
@@ -276,7 +306,7 @@ if __name__ == "__main__":
     # csv_data = pd.read_csv('question3CustomCombined.csv', header=None,
     #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     
-    csv_data = pd.read_csv('charlie_phone_540.csv')
+    csv_data = pd.read_csv('charlie_phone_540_slow.csv')
     csv_data = csv_data.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
     csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
     csv_data["az"] = csv_data["az"] * -1# Need to flip z axis to match the coord system for this project. 
@@ -326,13 +356,13 @@ if __name__ == "__main__":
                 time_simulated += time_step
                 mujoco_model_data.qpos[qpos_addr:qpos_addr+3] = [0,0,0]
                 mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = current_orientation_quat.data[0]
-                
+                # set_fixed_vector_geom(model, mujoco_model_data, 'vec_arrow', mahony_filter.v_hat_a)
                 mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
                 # Calculate the time to sleep
                 elasped_time = time.time() - start_time
                 sleep_time = time_simulated - elasped_time# if this is negative it means that the calculations are taking longer than the time step they are simulating so the simulation will be delayed. 
                 if sleep_time > 0:
-                    time.sleep(sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
+                    time.sleep(2 * sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
                 else:
                     print(f"Warning: Simulation is running behind schedule by{-sleep_time} seconds")
                 viewer.sync()

@@ -15,6 +15,12 @@
             <joint name="free_joint" type="free"/>
             <!-- Attach the mesh as a visual and collision object -->
             <geom type="mesh" mesh="phone_mesh" rgba="0.2 0.6 0.8 1" pos="-35 -135 -208" />
-        </body>
+            <geom name="vec_arrow"
+                type="cylinder"
+                size="2 50"  
+                rgba="1 0 0 1"
+                pos="0 0 0"
+                quat="1 0 0 0"/>
+                    </body>
     </worldbody>
 </mujoco>
