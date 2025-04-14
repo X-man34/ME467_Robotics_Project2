@@ -276,7 +276,7 @@ if __name__ == "__main__":
     # csv_data = pd.read_csv('question3CustomCombined.csv', header=None,
     #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     
-    csv_data = pd.read_csv('charlie_phone_data.csv')
+    csv_data = pd.read_csv('charlie_phone_540.csv')
     csv_data = csv_data.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
     csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
     csv_data["az"] = csv_data["az"] * -1# Need to flip z axis to match the coord system for this project. 
@@ -360,5 +360,5 @@ if __name__ == "__main__":
             
 
     # Compute and print the total rotation at the end of the dataset
-    plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=False)
+    plot_rotation_data(times, rotation_angles, title_suffix=" using Mahony Filter", data_in_radians=True, convert=True)
     # plot_raw_data(m_corrected_array)
