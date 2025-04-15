@@ -113,10 +113,6 @@ class Estimator(ABC):
     def get_m_corrected(self):
         pass
 
-
-
-
-
 class MahonyFilter(Estimator):
     """
     MahonyFilter: A class implementing the Mahony filter for attitude estimation.
@@ -240,7 +236,6 @@ class MahonyFilter(Estimator):
     def get_m_corrected(self):
         return self.m_corrected
 
-
 class NaiveEstimator(Estimator):
     def __init__(self, dT):
         self.dT = dT
@@ -278,7 +273,6 @@ class NaiveEstimator(Estimator):
     @property
     def get_m_corrected(self):
         return self.m_corrected
-
 
 class TriadEstimator(Estimator):
     """
@@ -333,7 +327,7 @@ class TriadEstimator(Estimator):
         m_vertical = (np.dot(self.m0, g_body_estimated_from_curr_quat) / (np.linalg.norm(g_body_estimated_from_curr_quat) ** 2)) * g_body_estimated_from_curr_quat
         self.m0_corrected = self.m0 - m_vertical
 
-       
+       # what about the other way around?
         rot_matr_triad = TRIAD(accel_vector, v_m, self.g_inertial, self.m0_corrected, returnRotMatrx=True)#where we are?
         angle, vector = tr2angvec(self.q.R @ rot_matr_triad.T)
         self.omega_mes = angle * vector

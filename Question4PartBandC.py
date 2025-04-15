@@ -37,4 +37,4 @@ triad_estimator = TriadEstimator(dt, kI=.3, kP=2, kA=1.0, kM=.5)
 times, rotation_angles, _, _, _, _, _ = simulate_and_visualize_data(csv_data, dt, triad_estimator,  do_3D_vis=True, show_body_coords=False, show_extra_vectors=True, show_spatial_coords=True)
 
 #Plot the data. 
-plot_rotation_data(times, rotation_angles, title_suffix=" using Naive Orientation Estimator", data_in_radians=True, convert=False)
+plot_rotation_data(times, rotation_angles, title_suffix=" using Triad Orientation Estimator", data_in_radians=True, convert=False)
