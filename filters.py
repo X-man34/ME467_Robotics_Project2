@@ -316,14 +316,18 @@ class TriadEstimator(Estimator):
         self.m_corrected = magnetometer_vector - m_vertical 
         v_m = normalize(self.m_corrected)
 
-        rotation_matrix = TRIAD(accel_vector, v_m, self.g_inertial, self.m0_corrected, returnRotMatrx=False)
+        m_vertical = (np.dot(self.m0, g_body_estimated_from_curr_quat) / (np.linalg.norm(g_body_estimated_from_curr_quat) ** 2)) * g_body_estimated_from_curr_quat
+        self.m0_corrected = self.m0 - m_vertical
+
+
+        rotation_matrix = TRIAD(accel_vector, v_m, self.g_inertial, self.m0_corrected, returnRotMatrx=True)
         #Also try and correct the true value to help with creating a basis.
         self.v_hat_a = rotation_matrix.T @ self.g_inertial
         self.v_hat_m = rotation_matrix.T @ self.m0
 
         #Update estimate of error
         self.estimated_error = 1 - np.dot(normalize(accel_vector), self.v_hat_a) + 1 - np.dot(v_m, self.v_hat_m)
-        return 
+        return SO3(rotation_matrix).UnitQuaternion()
     
 
 

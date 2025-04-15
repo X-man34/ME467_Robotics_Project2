@@ -23,8 +23,8 @@ if __name__ == "__main__":
 
     times = []
     rotation_angles = []
-    # triad_estimator = MahonyWithTriadEstimator(dt, kP=2)#Custom filter that Caleb made. I originally thought it was what the instructions wanted. 
-    triad_estimator = TriadEstimator(dt, kP=2)
+    triad_estimator = MahonyWithTriadEstimator(dt, kP=2)#Custom filter that Caleb made. I originally thought it was what the instructions wanted. 
+    # triad_estimator = TriadEstimator(dt, kP=2)
     # Perfrom the simulation and get the data
     times, rotation_angles, _, _, _, _, _ = simulate_and_visualize_data(csv_data, dt, triad_estimator,  do_3D_vis=True, show_body_coords=False, show_extra_vectors=True, show_spatial_coords=True)
 
