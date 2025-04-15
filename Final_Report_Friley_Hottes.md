@@ -63,6 +63,8 @@ We tuned out K values to be the following based on trial and error.
 
 $k_p=1, k_I=.3, k_a=.8, k_m=.2$
 
+FIXME update this visualization after getting all the different visualization tools in play, spesificly seeing the raw data and va and vm and vm hat and va hat and the gyrosope and bias and innovation and all that. 
+
 We visualized this motion using MuJoCo that can be seen in `fig\Fig_2-2.mp4`
 
 ### Results
@@ -73,6 +75,8 @@ Figures 2-1a and 2-1b below show the rotation angle over time in radians and deg
 
 Over the course of the motion, the phone rotated a total of approximately 8,572 radians, or 491,165 degrees. This total includes all incremental rotations.
 
+FIXME update these after final check of code
+
 ![Figure 2-1 Rads](fig/Fig_2-1a_(rad).png)
 *Fig 2-1a: Estimated rotation angle over time (radians)*
 
@@ -81,11 +85,22 @@ Over the course of the motion, the phone rotated a total of approximately 8,572 
 
 ### Observations
 
-Doing this project, we noticed some quirks of the Mahony filter.
+While working on this project, we noticed several behaviors of the Mahony filter:
 
-flipping on certain edges or not
-drifting to magnetic north
-how gains have changed things
-confinming answers with rotated estimate - vhata in the spatial
-3D visualzation.
-put a magnet by the phone, can be seen when we do 3D visualization
+- When the magnetometer gain $k_m$ was set too high, the phone’s orientation estimate became overly constrained. Specifically, during large flips, the filter would only allow the phone to rotate about 90 degrees, even when the phone was flipped fully. This prevented full rotations and caused the phone to align too strongly with magnetic north.
+
+- The filter showed a tendency to drift toward magnetic north very slowly. For low values of $k_m$, the phone would gradually oscillate around magnetic north until it converged on the correct orientation. For larger values of $k_m$, it would snap into place much more quickly. We discovered this when testing with our own data, where the phone was sitting still for a full minute, and we observed the filter slowly orienting it correctly over time. This behavior occurs because the initial orientation is assumed to be the identity quaternion, which does not match the phone's actual orientation. This led us to consider using the TRIAD method to initialize the orientation more accurately before switching to the Mahony filter for continuous updates.
+
+- We verified the correctness of the internal orientation estimate using 3D visualization in MuJoCo. By observing the rotated magnetic reference vector $\hat{v}_m$, we saw that it remained fixed in the **spatial** (inertial) frame as expected. This confirmed that the estimated orientation was rotating the internal reference vectors correctly.
+
+- To further test the filter's sensitivity, we placed a magnet near the phone. In the 3D visualization, we observed a clear reaction in the filter’s output — the orientation estimate became unstable or skewed. This confirmed that the magnetometer data was being used actively and was susceptible to external magnetic disturbances.
+
+
+
+
+
+
+
+
+
+
