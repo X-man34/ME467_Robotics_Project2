@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from visualizer import simulate_and_visualize_data
+from filters import MahonyFilter
 
 def plot_euler_angles(times, roll, pitch, yaw):
     plt.figure(figsize=(10,6))
@@ -49,8 +50,8 @@ if __name__ == "__main__":
     csv_data["az"] = csv_data["az"] * -1# Need to flip z axis to match the coord system for this project. 
     
 
-    
-    times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw = simulate_and_visualize_data(csv_data, .01,kp=1, kI=.3, ka_nominal=1, km_nominal=1, do_3D_vis=True, show_body_coords=True, show_extra_vectors=True, show_spatial_coords=True, use_TRIAD_initial_attitude_estimation=True)
+    mahony_filter = MahonyFilter(dT=.01, kp=1.0, kI=0.3, ka_nominal=.8, km_nominal=.2)
+    times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw = simulate_and_visualize_data(csv_data, .01, mahony_filter, do_3D_vis=True, show_body_coords=True, show_extra_vectors=True, show_spatial_coords=True)
     
 
     # Plot the euler angles

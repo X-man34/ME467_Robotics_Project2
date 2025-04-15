@@ -6,7 +6,7 @@ import time
 import mujoco as mj
 import mujoco.viewer
 from scipy.spatial.transform import Rotation as R
-from filters import MahonyFilter
+from filters import Estimator
 from spatialmath import SO3
 
 
@@ -37,7 +37,7 @@ def get_quat_from_vec(v_spatial, negate_z=False)-> np.ndarray:
     # MuJoCo wants [w, x, y, z]
     return np.roll(quat_v, 1)
 
-def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, kp, kI, ka_nominal, km_nominal, use_TRIAD_initial_attitude_estimation=False, do_3D_vis=True, show_extra_vectors = False, show_spatial_coords=False, show_body_coords=False):
+def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estimator: Estimator, do_3D_vis=True, show_extra_vectors = False, show_spatial_coords=False, show_body_coords=False):
     """
     Performs a simulation on a pandas dataframe with header names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     There is the option to not do a full 3D visualization
@@ -63,7 +63,7 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, kp, kI
     error_estimates = []
     # Initialize the filter. This is where you change the gains. You don't have to pass in initial conditions, but it improves the estimate. 
     # You can also ask it to use the TRIAD initial pose estimatior, but at the time of writing the implementation does not work and its not asked for question 2, so its left disabled. 
-    mahony_filter = MahonyFilter(dT=time_step, kp=kp, kI=kI, ka_nominal=ka_nominal, km_nominal=km_nominal, use_TRIAD_initial_attitude_estimation=use_TRIAD_initial_attitude_estimation, init_conditions=(raw_accel_vector, raw_mag_vector))
+    estimator.set_initial_conditions((raw_accel_vector, raw_mag_vector))
     #Set up 3D visualization
     model = mj.MjModel.from_xml_path(r"resources\\phone.xml")
     mujoco_model_data = mj.MjData(model)
@@ -115,7 +115,7 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, kp, kI
             raw_accel_vector = np.array([row['ax'], row['ay'], row['az']])
 
             # Perform the calculations. 
-            current_orientation_quat = mahony_filter.time_step(raw_mag_vector, raw_gyro_vector, raw_accel_vector)
+            current_orientation_quat = estimator.time_step(raw_mag_vector, raw_gyro_vector, raw_accel_vector)
             # Save the results. 
             times.append(curr_time)
             rotation_angles.append(tr2angvec(current_orientation_quat.R)[0])
@@ -124,8 +124,8 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, kp, kI
             pitch.append(euler_angles[1])
             yaw.append(euler_angles[2])
 
-            error_estimates.append(mahony_filter.estimated_error)
-            bias_estimates.append(np.linalg.norm(mahony_filter.bias))
+            error_estimates.append(estimator.get_estimated_error)
+            bias_estimates.append(np.linalg.norm(estimator.get_bias))
 
 
 
@@ -140,8 +140,8 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, kp, kI
                 # TODO more fun visualization, it seems like v_hat_m is not pointing in the right direction. 
                 # estimate vectors
                 # mujoco_model_data.qpos[qpos_addr_v_a_hat:qpos_addr_v_a_hat+4] = get_quat_from_vec(mahony_filter.v_hat_a)
-                mujoco_model_data.qpos[qpos_addr_v_m_hat:qpos_addr_v_m_hat+4] = get_quat_from_vec(mahony_filter.omega_mes, negate_z=False)
-                mujoco_model_data.qpos[qpos_addr_v_a_hat:qpos_addr_v_a_hat+4] = get_quat_from_vec(mahony_filter.v_hat_a, negate_z=True)
+                mujoco_model_data.qpos[qpos_addr_v_m_hat:qpos_addr_v_m_hat+4] = get_quat_from_vec(estimator.get_v_hat_m, negate_z=False)
+                mujoco_model_data.qpos[qpos_addr_v_a_hat:qpos_addr_v_a_hat+4] = get_quat_from_vec(estimator.get_v_hat_a, negate_z=True)
                 mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
                 
                 if not viewer.is_running():

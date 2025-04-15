@@ -2,6 +2,7 @@ from spatialmath import SO3
 import numpy as np
 import spatialmath as sm    
 from spatialmath.base import skew, tr2angvec
+from abc import ABC, abstractmethod
 
 
 def OMEGA(omega: np.ndarray)-> np.ndarray:
@@ -75,7 +76,43 @@ def TRIAD(body_1, body_2, reference_1, reference_2, returnRotMatrx=False):
     else:
         return SO3(rotation_matrix).UnitQuaternion()
 
-class MahonyFilter:
+
+
+
+class Estimator(ABC):
+    @abstractmethod
+    def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
+        pass
+
+    @abstractmethod
+    def set_initial_conditions(conditions: tuple):
+        pass
+    
+    @property
+    @abstractmethod
+    def get_estimated_error(self):
+        pass
+
+    @property
+    @abstractmethod
+    def get_bias(self):
+        pass
+
+    @property
+    @abstractmethod
+    def get_v_hat_a(self):
+        pass
+
+    @property
+    @abstractmethod
+    def get_v_hat_m(self):
+        pass
+
+
+
+
+
+class MahonyFilter(Estimator):
     """
     MahonyFilter: A class implementing the Mahony filter for attitude estimation.
     The Mahony filter is an algorithm used for estimating the orientation of an object in 3D space using sensor data from a gyroscope, accelerometer, and magnetometer. 
@@ -113,18 +150,16 @@ class MahonyFilter:
         self.kI = kI
         self.ka_nominal = ka_nominal
         self.km_nominal = km_nominal
-        self.q = sm.UnitQuaternion()  # Initial orientation quaternion
-        self.bias = np.zeros(3)  # Initial gyroscope bias
         self.m0 = true_m  # True magnetic field vector (inertial frame)
+        # These are the default initial conditions and for optimal filter performance they should be set later with set_initial_conditions. 
+        self.q = sm.UnitQuaternion()  # Initial orientation quaternion
+        self.v_hat_a = np.array([0,0,1])
+        self.v_hat_m = self.m0
+        self.bias = np.zeros(3)  # Initial gyroscope bias
         self.m_corrected = true_m# expose for graphing. 
         self.estimated_error = 0
         self.omega_mes = 0
-
-        if use_TRIAD_initial_attitude_estimation and 'init_conditions' in kwargs:
-            self.q = TRIAD(kwargs['init_conditions'][0], kwargs['init_conditions'][1], self.g_inertial, self.m0)
-        self.v_hat_a = normalize(kwargs.get("init_conditions", (np.array([0, 0, 1]),))[0])  # Initial estimate of gravitational acceleration
-        self.v_hat_m = normalize(kwargs.get("init_conditions", (np.array([0, 0, 1]),true_m.copy()))[1])
-
+        self.use_TRIAD_initial_attitude_estimation = use_TRIAD_initial_attitude_estimation
 
     def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
         """
@@ -173,28 +208,68 @@ class MahonyFilter:
         #Update estimate of error for Q3
         self.estimated_error = 1 - np.dot(v_a, self.v_hat_a) + 1 - np.dot(v_m, self.v_hat_m)
         return self.q
+    
+    def set_initial_conditions(self, conditions):
+        if self.use_TRIAD_initial_attitude_estimation:
+            self.q = TRIAD(conditions[0], conditions[1], self.g_inertial, self.m0)
+        self.v_hat_a = normalize(conditions[0])  # Initial measured gravitational acceleration
+        self.v_hat_m = normalize(conditions[1])
+
+    @property
+    def get_estimated_error(self):
+        return self.estimated_error
+
+    @property
+    def get_bias(self):
+        return self.bias
+
+    @property
+    def get_v_hat_a(self):
+        return self.v_hat_a
+
+    @property
+    def get_v_hat_m(self):
+        return self.v_hat_m
 
 
-
-class NaiveEstimator:
+class NaiveEstimator(Estimator):
     def __init__(self, dT):
         self.dT = dT
         self.q = sm.UnitQuaternion()
+        self.estimated_error = None
+        self.bias = None
+        self.v_hat_a = None
+        self.v_hat_m = None
 
     def time_step(self, gyro_data):
         self.q = updateQuaternion(self.q, gyro_data, self.dT)
         return self.q
+    
+    def set_initial_conditions(self, conditions):
+        self.v_hat_a = normalize(conditions[0])  # Initial measured gravitational acceleration
+        self.v_hat_m = normalize(conditions[1])
+    
+    @property
+    def get_estimated_error(self):
+        return self.estimated_error
+
+    @property
+    def get_bias(self):
+        return self.bias
+
+    @property
+    def get_v_hat_a(self):
+        return self.v_hat_a
+
+    @property
+    def get_v_hat_m(self):
+        return self.v_hat_m
 
 
-class TriadEstimator:
+class TriadEstimator(Estimator):
     """
 
-    uses v_hat_ and v_hat_m
-    to get hat vectors:
-    use triad to get estimated rot matrix.
-    then rotate true value to body frame using rot matrix from triad to get v_hat_a and v_hat_m
-    then we can proceed as we did with the mahony filter but without the bias. 
-    we compute omega mes and etc. 
+    Custom estimator using triad somehow. 
     """
     def __init__(self, dT, kI=.3, kP=1.0, kA=1.0, kM=.5, true_m=np.array([0.087117, 0.37923, -0.92119]), **kwargs):
         self.g_inertial = np.array([0, 0, 9.0665])
@@ -203,20 +278,19 @@ class TriadEstimator:
         self.kM = kM
         self.kA = kA
         self.kI = kI
-        self.q = sm.UnitQuaternion()  # Initial orientation quaternion
         self.m0 = true_m  # True magnetic field vector (inertial frame)
+        self.q = sm.UnitQuaternion()  # Initial orientation quaternion
+        self.v_hat_a = np.array([0,0,1])
+        self.v_hat_m = self.m0
+        
         self.m_corrected = true_m# expose for graphing. 
         self.estimated_error = 0
         self.omega_mes = 0
         self.bias = np.zeros(3)  # Initial gyroscope bias
 
-        if 'init_conditions' in kwargs:
-            self.q = TRIAD(kwargs['init_conditions'][0], kwargs['init_conditions'][1], self.g_inertial, self.m0)
-        self.v_hat_a = normalize(kwargs.get("init_conditions", (np.array([0, 0, 1]),))[0])  # Initial estimate of gravitational acceleration
-        self.v_hat_m = normalize(kwargs.get("init_conditions", (np.array([0, 0, 1]),true_m.copy()))[1])
-
 
     def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
+
         """
         Perform a single time step of the Mahony filter update.
         This function takes in the current sensor measurements and updates the filter's state.
@@ -265,3 +339,27 @@ class TriadEstimator:
         #Update estimate of error for Q3
         self.estimated_error = 1 - np.dot(v_a, self.v_hat_a) + 1 - np.dot(v_m, self.v_hat_m)
         return self.q
+    
+
+    def set_initial_conditions(self, conditions):
+        self.q = TRIAD(conditions[0], conditions[1], self.g_inertial, self.m0)
+        self.v_hat_a = normalize(conditions[0])  # Initial measured gravitational acceleration
+        self.v_hat_m = normalize(conditions[1])
+
+
+    @property
+    def get_estimated_error(self):
+        return self.estimated_error
+
+    @property
+    def get_bias(self):
+        return self.bias
+
+    @property
+    def get_v_hat_a(self):
+        return self.v_hat_a
+
+    @property
+    def get_v_hat_m(self):
+        return self.v_hat_m
+        

@@ -94,41 +94,41 @@ def generate_body_angular_velocities(deltat):
     data = np.column_stack((t, omega))
     return data
 
+if __name__ == "__main__":
+    deltaT = .01
+    quaternion = sm.UnitQuaternion()
+    input_data = generate_body_angular_velocities(deltaT)
 
-deltaT = .01
-quaternion = sm.UnitQuaternion()
-input_data = generate_body_angular_velocities(deltaT)
+    # Set up the figure and 3D axis for visualization. and maximize the window
+    plt.ion()
+    fig = plt.figure()
+    manager = plt.get_current_fig_manager()
 
-# Set up the figure and 3D axis for visualization. and maximize the window
-plt.ion()
-fig = plt.figure()
-manager = plt.get_current_fig_manager()
+    ax = fig.add_subplot(111, projection='3d')
 
-ax = fig.add_subplot(111, projection='3d')
+    for time, wx, wy, wz in input_data:   
+        quaternion = filters.updateQuaternion(quaternion, np.array([wx, wy, wz]).reshape(3,1), deltaT)
+        temp = sm.UnitQuaternion()
+        temp.data = [np.array(quaternion).reshape(1,4)]
+        step_animation(temp, deltaT)
 
-for time, wx, wy, wz in input_data:   
-    quaternion = filters.updateQuaternion(quaternion, np.array([wx, wy, wz]).reshape(3,1), deltaT)
-    temp = sm.UnitQuaternion()
-    temp.data = [np.array(quaternion).reshape(1,4)]
-    step_animation(temp, deltaT)
+    # generate the final rotation matrix analytically to check answer. 
+    one = sm.SO3.Rx(np.pi/4)
+    two = sm.SO3.Rz(np.pi/4)
+    three = sm.SO3.Rx(-np.pi/4)
+    four = sm.SO3.Rz(-np.pi/4)
 
-# generate the final rotation matrix analytically to check answer. 
-one = sm.SO3.Rx(np.pi/4)
-two = sm.SO3.Rz(np.pi/4)
-three = sm.SO3.Rx(-np.pi/4)
-four = sm.SO3.Rz(-np.pi/4)
+    final_quaternion = sm.UnitQuaternion()
+    final_quaternion.data = [np.array(quaternion).reshape(1,4)]
 
-final_quaternion = sm.UnitQuaternion()
-final_quaternion.data = [np.array(quaternion).reshape(1,4)]
+    correct_quaternion = sm.UnitQuaternion()
+    correct_quaternion.data = [np.array(r2q(np.array(one @ two @ three @ four))).reshape(1,4)]
 
-correct_quaternion = sm.UnitQuaternion()
-correct_quaternion.data = [np.array(r2q(np.array(one @ two @ three @ four))).reshape(1,4)]
+    print("Correct answer: " + str(correct_quaternion))
+    print("Our Answer: " + str(final_quaternion))
+    if (final_quaternion == correct_quaternion):
+        print("Final quaternion is correct!")
+    else:
+        print("We are wrong, or there is a floating point error in the comparison. ")
 
-print("Correct answer: " + str(correct_quaternion))
-print("Our Answer: " + str(final_quaternion))
-if (final_quaternion == correct_quaternion):
-    print("Final quaternion is correct!")
-else:
-    print("We are wrong, or there is a floating point error in the comparison. ")
-
-print((np.array(one @ two @ three @ four)))
+    print((np.array(one @ two @ three @ four)))
