@@ -50,7 +50,7 @@ if __name__ == "__main__":
     
 
     
-    times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw = simulate_and_visualize_data(csv_data, .01,kp=1, kI=.3, ka_nominal=1, km_nominal=1, do_3D_vis=True, show_body_coords=True, show_extra_vectors=True, show_spatial_coords=True)
+    times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw = simulate_and_visualize_data(csv_data, .01,kp=1, kI=.3, ka_nominal=1, km_nominal=1, do_3D_vis=True, show_body_coords=True, show_extra_vectors=True, show_spatial_coords=True, use_TRIAD_initial_attitude_estimation=True)
     
 
     # Plot the euler angles
