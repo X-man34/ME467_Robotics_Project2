@@ -454,3 +454,160 @@ class MahonyWithTriadEstimator(Estimator):
     @property
     def get_m_corrected(self):
         return self.m_corrected
+    
+class HybridMahonyTriadFilter(Estimator):
+    def __init__(self, dT, threshold, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=.5, true_m=np.array([0.087117, 0.37923, -0.92119]), **kwargs):
+        self.g_inertial = np.array([0, 0, 9.0665])
+        self.dT = dT
+        self.kp = kp
+        self.kI = kI
+        self.ka_nominal = ka_nominal
+        self.km_nominal = km_nominal
+        self.m0 = true_m  # True magnetic field vector (inertial frame)
+        # These are the default initial conditions and for optimal filter performance they should be set later with set_initial_conditions. 
+        self.q = sm.UnitQuaternion()  # Initial orientation quaternion
+        self.v_hat_a = np.array([0,0,1])
+        self.v_hat_m = self.m0
+        self.bias = np.zeros(3)  # Initial gyroscope bias
+        self.m_corrected = true_m# expose for graphing. 
+        self.estimated_error = 0
+        self.omega_mes = 0
+        self.threshold = threshold  # Threshold for gyroscope magnitude to switch between filter
+
+    def mahony_time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
+        """
+        Perform a single time step of the Mahony filter update.
+        This function takes in the current sensor measurements and updates the filter's state.
+
+        Arguments:
+            magnetometer_vector: 3D vector from the magnetometer (in inertial frame).
+            gyro_vector: 3D vector from the gyroscope (in body frame).
+            accel_vector: 3D vector from the accelerometer (in body frame).
+
+        Returns:
+            Updated orientation quaternion.
+        """       
+        time_step = kwargs.get('time_step', self.dT)  # Use the provided time step or the default one            
+        v_a = normalize(accel_vector)
+
+        # Normalize magnetometer measurements while subtracting gravity component
+        #gravity terms
+        
+        g_body = self.q.R.T @ self.g_inertial
+        #projecting m onto g_body, this gives the part of m that is in the gravity direction
+        m_vertical = (np.dot(magnetometer_vector, g_body) / (np.linalg.norm(g_body) ** 2)) * g_body
+        self.m_corrected = magnetometer_vector - m_vertical 
+        v_m = normalize(self.m_corrected)
+
+        #Also try and correct the true value to help with creating a basis.
+        m_vertical = (np.dot(self.m0, g_body) / (np.linalg.norm(g_body) ** 2)) * g_body
+        self.m0_corrected = self.m0 - m_vertical
+
+        if np.linalg.norm(gyro_vector) < self.threshold:
+            # what about the other way around?
+            rot_matr_triad = TRIAD(accel_vector, v_m, self.g_inertial, self.m0_corrected, returnRotMatrx=True)#where we are?
+            angle, vector = tr2angvec(self.q.R @ rot_matr_triad.T)
+            self.omega_mes = angle * vector
+            # Compute effective angular velocity for the update: 
+            u =  gyro_vector - self.kp * self.omega_mes
+            print("Using TRIAD")
+
+        else:
+            # Compute the error signals from cross products: Innovation:
+            error_acc = np.cross(v_a, self.v_hat_a)
+            error_mag = np.cross(v_m, self.v_hat_m)
+            self.omega_mes = self.ka_nominal * error_acc + self.km_nominal * error_mag# FIXME we likly need to normalize the values used here, but there is some dought about it. 
+            # Compute effective angular velocity for the update: 
+            u = gyro_vector - self.bias + self.kp * self.omega_mes
+            print("Using MAHONY")
+
+        # Update the orientation quaternion using our update function
+        self.q = updateQuaternion(self.q, u, time_step)
+
+        # Update the gyroscope bias estimate
+        self.bias = self.bias - self.kI * self.omega_mes * time_step
+
+        # Update the estimated reference vectors using the Rodrigues formula
+        R_update = rodrigues(-u, time_step)
+        self.v_hat_a = R_update @ self.v_hat_a
+        self.v_hat_m = R_update @ self.v_hat_m
+
+        #Update estimate of error for Q3
+        self.estimated_error = 1 - np.dot(v_a, self.v_hat_a) + 1 - np.dot(v_m, self.v_hat_m)
+        return self.q
+    
+    def triad_time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
+
+        """
+        Perform a single time step of the Mahony filter update.
+        This function takes in the current sensor measurements and updates the filter's state.
+
+        Arguments:
+            magnetometer_vector: 3D vector from the magnetometer (in inertial frame).
+            gyro_vector: 3D vector from the gyroscope (in body frame).
+            accel_vector: 3D vector from the accelerometer (in body frame).
+
+        Returns:
+            Updated orientation quaternion.
+        """                
+
+        # Normalize magnetometer measurements while subtracting gravity component
+        #gravity terms
+        
+        g_body_estimated_from_curr_quat = self.q.R.T @ self.g_inertial
+        #projecting m onto g_body, this gives the part of m that is in the gravity direction
+        m_vertical = (np.dot(magnetometer_vector, g_body_estimated_from_curr_quat) / (np.linalg.norm(g_body_estimated_from_curr_quat) ** 2)) * g_body_estimated_from_curr_quat
+        self.m_corrected = magnetometer_vector - m_vertical 
+        v_m = normalize(self.m_corrected)
+
+        m_vertical = (np.dot(self.m0, g_body_estimated_from_curr_quat) / (np.linalg.norm(g_body_estimated_from_curr_quat) ** 2)) * g_body_estimated_from_curr_quat
+        self.m0_corrected = self.m0 - m_vertical
+
+
+        rotation_matrix = TRIAD(accel_vector, v_m, self.g_inertial, self.m0_corrected, returnRotMatrx=True)
+        #Also try and correct the true value to help with creating a basis.
+        self.v_hat_a = rotation_matrix.T @ self.g_inertial
+        self.v_hat_m = rotation_matrix.T @ self.m0
+
+        #Update estimate of error
+        self.estimated_error = 1 - np.dot(normalize(accel_vector), self.v_hat_a) + 1 - np.dot(v_m, self.v_hat_m)
+        return SO3(rotation_matrix).UnitQuaternion()
+    
+    def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
+        
+        magnitude_of_gyro = np.linalg.norm(gyro_vector)
+
+        # if magnitude_of_gyro < self.threshold:  # If the gyroscope is not moving, use TRIAD
+        #     print("Using TRIAD")
+        #     self.q = self.triad_time_step(magnetometer_vector, gyro_vector, accel_vector, **kwargs)
+        # else:
+        #     print("Using MAHONY")
+        #     self.q = self.mahony_time_step(magnetometer_vector, gyro_vector, accel_vector, **kwargs)
+
+        return self.mahony_time_step(magnetometer_vector, gyro_vector, accel_vector, **kwargs)
+
+    def set_initial_conditions(self, conditions):
+        self.q = TRIAD(conditions[0], conditions[1], self.g_inertial, self.m0)
+        self.v_hat_a = normalize(conditions[0])  # Initial measured gravitational acceleration
+        self.v_hat_m = normalize(conditions[1])
+
+
+    @property
+    def get_estimated_error(self):
+        return self.estimated_error
+
+    @property
+    def get_bias(self):
+        return self.bias
+
+    @property
+    def get_v_hat_a(self):
+        return self.v_hat_a
+
+    @property
+    def get_v_hat_m(self):
+        return self.v_hat_m
+    
+    @property
+    def get_m_corrected(self):
+        return self.m_corrected
