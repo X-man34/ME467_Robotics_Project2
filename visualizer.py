@@ -1,4 +1,4 @@
-from spatialmath.base import skew, tr2angvec
+from spatialmath.base import tr2angvec
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -12,6 +12,9 @@ from spatialmath import SO3
 
 # for plotting v_a_hat etc
 def get_quat_from_vec(v_spatial, negate_z=False)-> np.ndarray:
+    """
+    
+    """
     # Normalize
     v_spatial = v_spatial / np.linalg.norm(v_spatial)
 
