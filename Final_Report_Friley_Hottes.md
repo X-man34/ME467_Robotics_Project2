@@ -16,6 +16,14 @@ The Mahony filter is a nonlinear complementary filter that combines gyroscope in
 
 The TRIAD (Tri-Axial Attitude Determination) method estimates orientation using two reference vectors: gravity and magnetic north. It constructs two orthonormal frames — one from known inertial vectors and one from measured body-frame vectors — and computes the rotation matrix that aligns them. Unlike the other two methods, TRIAD is algebraic and doesn't rely on time integration, which means it gives an immediate estimate of orientation at each time step, but doesn’t track changes over time or handle gyroscope data.
 
+### Caleb's Custom Filter
+
+
+
+### Charles' Custom Filter
+
+
+
 ## Question 1
 
 In question 1 we implement a naïve gyroscope integration in order to estimate orientation with a set of given inputs. These inputs simulate perfect gyroscope data with no bias or drift.
@@ -63,7 +71,7 @@ We tuned out K values to be the following based on trial and error.
 
 $k_p=1, k_I=.3, k_a=.8, k_m=.2$
 
-FIXME update this visualization after getting all the different visualization tools in play, spesificly seeing the raw data and va and vm and vm hat and va hat and the gyrosope and bias and innovation and all that. 
+# FIXME update this visualization after getting all the different visualization tools in play, spesificly seeing the raw data and va and vm and vm hat and va hat and the gyrosope and bias and innovation and all that. 
 
 We visualized this motion using MuJoCo that can be seen in `fig\Fig_2-2.mp4`
 
@@ -75,7 +83,7 @@ Figures 2-1a and 2-1b below show the rotation angle over time in radians and deg
 
 Over the course of the motion, the phone rotated a total of approximately 8,572 radians, or 491,165 degrees. This total includes all incremental rotations.
 
-FIXME update these after final check of code
+# FIXME update these after final check of code
 
 ![Figure 2-1 Rads](fig/Fig_2-1a_(rad).png)
 *Fig 2-1a: Estimated rotation angle over time (radians)*

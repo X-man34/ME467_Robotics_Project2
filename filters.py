@@ -357,7 +357,6 @@ class TriadEstimator(Estimator):
     def get_m_corrected(self):
         return self.m_corrected
 
-
 class MahonyWithTriadEstimator(Estimator):
     """
 
@@ -455,3 +454,5 @@ class MahonyWithTriadEstimator(Estimator):
     @property
     def get_m_corrected(self):
         return self.m_corrected
+
+class HybridEstimator(Estimator):
