@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from Question2 import *
 from filters import *
-from Question3 import plot_error_estimates, plot_gyro_bias, plot_euler_angles
+from Question3 import plot_error_estimates, plot_euler_angles
 
 
 
@@ -32,6 +32,4 @@ if __name__ == "__main__":
     plot_euler_angles(times, roll, pitch, yaw)
 
     plot_error_estimates(times, error_estimates)
-
-    plot_gyro_bias(times, bias_estimates)
     
