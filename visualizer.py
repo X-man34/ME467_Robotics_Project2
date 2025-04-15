@@ -124,8 +124,11 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estima
             pitch.append(euler_angles[1])
             yaw.append(euler_angles[2])
 
-            error_estimates.append(estimator.get_estimated_error)
-            bias_estimates.append(np.linalg.norm(estimator.get_bias))
+
+            if estimator.get_estimated_error is not None :
+                error_estimates.append(estimator.get_estimated_error)
+            if estimator.get_bias is not None:
+                bias_estimates.append(np.linalg.norm(estimator.get_bias))
 
 
 
@@ -140,8 +143,8 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estima
                 # TODO more fun visualization, it seems like v_hat_m is not pointing in the right direction. 
                 # estimate vectors
                 # mujoco_model_data.qpos[qpos_addr_v_a_hat:qpos_addr_v_a_hat+4] = get_quat_from_vec(mahony_filter.v_hat_a)
-                mujoco_model_data.qpos[qpos_addr_v_m_hat:qpos_addr_v_m_hat+4] = get_quat_from_vec(estimator.get_v_hat_m, negate_z=False)
-                mujoco_model_data.qpos[qpos_addr_v_a_hat:qpos_addr_v_a_hat+4] = get_quat_from_vec(estimator.get_v_hat_a, negate_z=True)
+                mujoco_model_data.qpos[qpos_addr_v_m_hat:qpos_addr_v_m_hat+4] = get_quat_from_vec(current_orientation_quat.R @ raw_accel_vector, negate_z=False)
+                mujoco_model_data.qpos[qpos_addr_v_a_hat:qpos_addr_v_a_hat+4] = get_quat_from_vec(np.array([0, 0, 9.0665]), negate_z=True)
                 mujoco.mj_forward(model, mujoco_model_data)# This is called pre sleep so we use part of our time step to update the viewer, but this wont be been unil viewer.synyc() is called.
                 
                 if not viewer.is_running():

@@ -108,6 +108,11 @@ class Estimator(ABC):
     def get_v_hat_m(self):
         pass
 
+    @property
+    @abstractmethod
+    def get_m_corrected(self):
+        pass
+
 
 
 
@@ -230,6 +235,10 @@ class MahonyFilter(Estimator):
     @property
     def get_v_hat_m(self):
         return self.v_hat_m
+    
+    @property
+    def get_m_corrected(self):
+        return self.m_corrected
 
 
 class NaiveEstimator(Estimator):
@@ -240,9 +249,10 @@ class NaiveEstimator(Estimator):
         self.bias = None
         self.v_hat_a = None
         self.v_hat_m = None
+        self.m_corrected = None
 
-    def time_step(self, gyro_data):
-        self.q = updateQuaternion(self.q, gyro_data, self.dT)
+    def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
+        self.q = updateQuaternion(self.q, gyro_vector, self.dT)
         return self.q
     
     def set_initial_conditions(self, conditions):
@@ -264,6 +274,10 @@ class NaiveEstimator(Estimator):
     @property
     def get_v_hat_m(self):
         return self.v_hat_m
+    
+    @property
+    def get_m_corrected(self):
+        return self.m_corrected
 
 
 class TriadEstimator(Estimator):
@@ -287,6 +301,7 @@ class TriadEstimator(Estimator):
         self.estimated_error = 0
         self.omega_mes = 0
         self.bias = np.zeros(3)  # Initial gyroscope bias
+        self.m0_corrected = None
 
 
     def time_step(self, magnetometer_vector: np.ndarray, gyro_vector: np.ndarray, accel_vector: np.ndarray, **kwargs)-> sm.UnitQuaternion:
@@ -304,7 +319,6 @@ class TriadEstimator(Estimator):
             Updated orientation quaternion.
         """       
         time_step = kwargs.get('time_step', self.dT)  # Use the provided time step or the default one            
-        v_a = normalize(accel_vector)
 
         # Normalize magnetometer measurements while subtracting gravity component
         #gravity terms
@@ -314,30 +328,29 @@ class TriadEstimator(Estimator):
         m_vertical = (np.dot(magnetometer_vector, g_body_estimated_from_curr_quat) / (np.linalg.norm(g_body_estimated_from_curr_quat) ** 2)) * g_body_estimated_from_curr_quat
         self.m_corrected = magnetometer_vector - m_vertical 
         v_m = normalize(self.m_corrected)
+
+        #Also try and correct the true value to help with creating a basis.
         m_vertical = (np.dot(self.m0, g_body_estimated_from_curr_quat) / (np.linalg.norm(g_body_estimated_from_curr_quat) ** 2)) * g_body_estimated_from_curr_quat
-        m0_corrected = self.m0 - m_vertical
+        self.m0_corrected = self.m0 - m_vertical
 
        
-        rot_matr_triad = TRIAD(accel_vector, v_m, self.g_inertial, m0_corrected, returnRotMatrx=True)#where we are?
+        rot_matr_triad = TRIAD(accel_vector, v_m, self.g_inertial, self.m0_corrected, returnRotMatrx=True)#where we are?
         angle, vector = tr2angvec(self.q.R @ rot_matr_triad.T)
         self.omega_mes = angle * vector
 
         # Compute effective angular velocity for the update: 
-        u = gyro_vector - self.bias + self.kp * self.omega_mes
+        u =  gyro_vector - self.kp * self.omega_mes
 
-        # Update the gyroscope bias estimate
-        self.bias = self.bias - self.kI * self.omega_mes * time_step
 
         # Update the orientation quaternion using our update function
         self.q = updateQuaternion(self.q, u, time_step)
-
-        # Update the estimated reference vectors using the Rodrigues formula
+        # self.q = TRIAD(accel_vector, magnetometer_vector, self.g_inertial, self.m0, returnRotMatrx=False)
         R_update = rodrigues(-u, time_step)
         self.v_hat_a = R_update @ self.v_hat_a
         self.v_hat_m = R_update @ self.v_hat_m
 
         #Update estimate of error for Q3
-        self.estimated_error = 1 - np.dot(v_a, self.v_hat_a) + 1 - np.dot(v_m, self.v_hat_m)
+        # self.estimated_error = 1 - np.dot(v_a, self.v_hat_a) + 1 - np.dot(v_m, self.v_hat_m)
         return self.q
     
 
@@ -362,4 +375,8 @@ class TriadEstimator(Estimator):
     @property
     def get_v_hat_m(self):
         return self.v_hat_m
+    
+    @property
+    def get_m_corrected(self):
+        return self.m_corrected
         
