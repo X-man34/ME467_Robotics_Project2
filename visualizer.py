@@ -1,4 +1,4 @@
-from spatialmath.base import tr2angvec
+from spatialmath.base import tr2angvec, qconj
 import numpy as np
 import pandas as pd
 import time
@@ -8,6 +8,8 @@ from scipy.spatial.transform import Rotation as R
 from filters import Estimator
 from spatialmath import SO3
 from pathlib import Path
+import spatialmath as sm    
+from filters import magnetic_north_normalized, TRIAD
 
 def get_quat_from_vec(v_spatial, negate_z=False)-> np.ndarray:
     """
@@ -54,6 +56,8 @@ def get_quat_from_vec(v_spatial, negate_z=False)-> np.ndarray:
 
     # MuJoCo wants [w, x, y, z]
     return np.roll(quat_v, 1)
+
+
 
 def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estimator: Estimator, do_3D_vis=True, show_extra_vectors = False, show_spatial_coords=False, show_body_coords=False):
     """
@@ -103,6 +107,10 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estima
     error_estimates = []
     # Initialize the filter. This is where you change the gains. You don't have to pass in initial conditions, but it improves the estimate. 
     # You can also ask it to use the TRIAD initial pose estimatior, but at the time of writing the implementation does not work and its not asked for question 2, so its left disabled. 
+    temp = TRIAD(raw_accel_vector, raw_mag_vector, np.array([0, 0, 9.0665]), magnetic_north_normalized, returnRotMatrx=False)
+    initial_offset = sm.UnitQuaternion()
+    initial_offset.data[0] = qconj(temp.data[0])
+
     estimator.set_initial_conditions((raw_accel_vector, raw_mag_vector))
     #Set up 3D visualization
     xml_path = Path("resources") / "phone.xml"
@@ -113,6 +121,7 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estima
     with mujoco.viewer.launch_passive(model, mujoco_model_data) as viewer:
         if not do_3D_vis:
             viewer.close()
+        # Compute initial orientation from TRIAD or whatever
         viewer.cam.distance *= 300.0
 
         joint_name = "free_joint"
@@ -178,7 +187,8 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estima
                 #phone mesh
                 time_simulated += time_step
                 mujoco_model_data.qpos[qpos_addr:qpos_addr+3] = [0,0,0]
-                mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = current_orientation_quat.data[0]
+                print()
+                mujoco_model_data.qpos[qpos_addr+3:qpos_addr+7] = (initial_offset * current_orientation_quat).data[0]
 
 
                 # TODO more fun visualization, it seems like v_hat_m is not pointing in the right direction. 

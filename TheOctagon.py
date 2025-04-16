@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     # Load pre recorded CSV data
     #TODO load data live and have a real time estimate of what is going on. 
-    data_path = Path("csv_files") / "charlie_phone_540.csv"
+    data_path = Path("csv_files") / "charlie_still_weird.csv"
     csv_data = pd.read_csv(str(data_path))
     csv_data = csv_data.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
     csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
@@ -63,18 +63,18 @@ if __name__ == "__main__":
     # csv_data = pd.read_csv('csv_files\question2_input.csv', header=None,
     #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
 
-    mahony_filter_hybrid = HybridMahonyTriadFilter(dT=.01,threshold=0.05, kp=1.0, kI=0.3, ka_nominal=.8, km_nominal=.2)
-    naive_estimator = NaiveEstimator(0.01)
+    # mahony_filter_hybrid = HybridMahonyTriadFilter(dT=.01,threshold=0.05, kp=1.0, kI=0.3, ka_nominal=.8, km_nominal=.2)
+    # naive_estimator = NaiveEstimator(0.01)
     mahony_filter = MahonyFilter(dT=.01, kp=1.0, kI=0.3, ka_nominal=.8, km_nominal=.2)
-    mahony_thread = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, mahony_filter, True, True, True,True))
+    # mahony_thread = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, mahony_filter, True, True, True,True))
     
 
-    naieve_thread = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, naive_estimator, True, False, True,True))
-    mahony_thread.start()
-    naieve_thread.start()
-    # times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw = simulate_and_visualize_data(csv_data, .01, mahony_filter_hybrid, do_3D_vis=True, show_body_coords=True, show_extra_vectors=True, show_spatial_coords=True)
+    # naieve_thread = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, naive_estimator, True, False, True,True))
+    # mahony_thread.start()
+    # naieve_thread.start()
+    times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw = simulate_and_visualize_data(csv_data, .01, mahony_filter, do_3D_vis=True, show_body_coords=True, show_extra_vectors=True, show_spatial_coords=True)
     
-    # plot_rotation_data(times, rotation_angles, title_suffix="(Filtered)", data_in_radians=True, convert=False)
+    plot_rotation_data(times, rotation_angles, title_suffix="(Filtered)", data_in_radians=True, convert=False)
 
     # Plot the euler angles
     # plot_euler_angles(times, roll, pitch, yaw)
