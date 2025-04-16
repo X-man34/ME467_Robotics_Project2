@@ -31,7 +31,7 @@ The Mahony filter is a nonlinear complementary filter that combines gyroscope in
 The TRIAD (Tri-Axial Attitude Determination) method estimates orientation using two reference vectors: gravity and magnetic north. It constructs two orthonormal frames — one from known inertial vectors and one from measured body-frame vectors — and computes the rotation matrix that aligns them. Unlike the other two methods, TRIAD is algebraic and doesn't rely on time integration, which means it gives an immediate estimate of orientation at each time step, but doesn’t track changes over time or handle gyroscope data.
 
 ### Caleb's Custom Filter
-One of the main shortcomings (yet at the same time, its appeal) of the pure TRIAD method is its non-time dependence. That is, if you just provide the data at a single instant in time, I can provide you the rotation matrix. However this causes the estimator to be jumpy and skip all around when that is obviously not now real motion works. Caleb's filter attempts to solve this problem by using many aspects of the Mahony filter. The final result is the same as the Mahony filter, with the magnetic correction, quaternion update, and estimation of gravity and north vectors all being the same, but the innovation term `omega_mes` is calculated uniquely. A rotation matrix is created using the TRIAD function. 
+One of the main shortcomings (yet at the same time, its appeal) of the pure TRIAD method is its non-time dependence. That is, if you just provide the data at a single instant in time, I can provide you the rotation matrix. However this causes the estimator to be jumpy and skip all around when that is obviously not how real motion works. Caleb's filter attempts to solve this problem by using many aspects of the Mahony filter. The final result is the same as the Mahony filter, with the magnetic correction, quaternion update, and estimation of gravity and north vectors all being the same, but the innovation term `omega_mes` is calculated uniquely. A rotation matrix is created using the TRIAD function. 
 We can use this matrix to write an equation:
 
 $$\hat{R} = AR_{Tr}$$
@@ -132,16 +132,52 @@ While working on this project, we noticed several behaviors of the Mahony filter
 
 ## Question 3
 
-In question 3 we use the Mahony filter developed in question 2 in order to process data from our own phone
+In Question 3, we used the Mahony filter developed in Question 2 to process IMU data collected from our own phone. We extracted gyroscope, accelerometer, and magnetometer data and exported it as a CSV file. The phone was able to sample data at approximately 100 Hz. While each sensor had its own timestamp, the sampling intervals were sufficiently close that we used the accelerometer timestamps as a common reference across all measurements.
+
+We used `charlie_phone_540.csv` as the input dataset to the filter. In this dataset, the phone was rotated a total of 540 degrees: first 180° about the phone’s z-axis, then 180° about the y-axis, and finally 180° about the x-axis. A video showing the filter’s visualization of this sequence is included in `fig/Fig_3-1.mp4`.
+
 
 ### Results
+
+#### (a) Roll, Pitch, Yaw vs. Time
+
+We computed the roll, pitch, and yaw angles by converting the estimated orientation quaternion from the Mahony filter into Euler angles. These angles were then plotted with respect to time.
+
+![Figure 3-2](fig/Fig_3-2.png)
+*Fig 3-2: Roll, Pitch, Yaw vs Time*
+
+The plot confirms the intended motion sequence. Initially, we observe a rotation about the z-axis (yaw), followed by rotation about the y-axis (pitch), and finally about the x-axis (roll), consistent with the phone’s movement.
+
+#### (b) Estimated Error vs. Time
+
+
+To estimate the Mahony filter’s error signal, we used the formula given in Equation (6):
+
+$$
+E_{\text{mes}} = 1 - \mathbf{v}_a \cdot \hat{\mathbf{v}}_a + 1 - \mathbf{v}_m \cdot \hat{\mathbf{v}}_m
+$$
+
+This error metric captures the disagreement between the measured sensor directions and the expected directions from the current orientation estimate.
+
+![Figure 3-3](fig/Fig_3-3.png)
+*Fig 3-3: Estimated Error vs Time*
+
+The error peaks during periods of rapid motion, as expected. When the phone is still, the orientation estimate converges, and the error reduces.
+
+#### (c) Gyroscope Bias Estimate vs. Time
+
+The Mahony filter also maintains an internal estimate of the gyroscope bias, which is updated over time to account for sensor drift. We recorded and plotted this bias estimate.
+
+![Figure 3-4](fig/Fig_3-4.png)  
+*Fig 3-4: Estimated Gyroscope Bias vs Time*
+
+The bias estimate increases during motion as expected.
 
 ## Question 4
 Question 4 focuses on the implementation of the TRIAD and Naïve estimators. In part A we are asked to implement the Naïve estimator. Its implementation can be found in `filters.py` file in the class `NaiveEstimator(Estimator)`. Its is not very complicated and simply implements a equation given in the project instructions which I will repeat for clarity:
 $$\mathbf{q}_{k+1}=e^{\frac {1} {2} \Omega(\omega)\delta t}\mathbf{q}_{k}$$
 It appears to work moderately well as 
 ### Results
-
 
 
 
