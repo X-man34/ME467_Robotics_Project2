@@ -7,13 +7,4 @@ python 3.12.8
     Disabling 3D visuailizations also does not appear to close the viewer on linuix. 
 
 
-
-TODO
-compatiblity with linuix-DONE
-report -IN PROGRESS
-change magnetic north vector used=DONE
-audit code and write documentation
-charles filter-DONE
-subtracting inital pose
-real time vis
-
+See the reports folder for a flawed export of the report. Tried to do it in markdown, and for some reason could not get the math to render. 
