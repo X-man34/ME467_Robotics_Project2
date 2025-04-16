@@ -179,8 +179,17 @@ $$\mathbf{q}_{k+1}=e^{\frac {1} {2} \Omega(\omega)\delta t}\mathbf{q}_{k}$$
 It appears to work moderately well as 
 ### Results
 
+## Question 4
 
+In Question 4, we implemented two additional orientation estimation methods: the naïve gyroscope integration method and the TRIAD (Tri-axial Attitude Determination) method. These estimators were used to compare against the Mahony filter implemented in previous questions. We evaluated their performance on the input data from Question 2 as well as our own phone dataset from Question 3.
 
+### Results
+
+#### (c)
+
+#### (d)
+
+#### (e)
 
 
 
