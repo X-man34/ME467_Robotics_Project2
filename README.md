@@ -11,7 +11,7 @@ python 3.12.8
 TODO
 compatiblity with linuix-DONE
 report -IN PROGRESS
-change magnetic north vector used?
+change magnetic north vector used=DONE
 audit code and write documentation
 charles filter-DONE
 subtracting inital pose

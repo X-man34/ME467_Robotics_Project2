@@ -7,6 +7,14 @@ import math, mujoco.viewer
 import mujoco as mj
 from Question2 import MahonyFilter
 
+
+# THIS FILE IS A MESS
+# its an appempt to stream data live from my phone with a jank app because I'm stuck on IOS 16 so can't use HyperIMU, or an IOS app that isn't jank. 
+# I (caleb) put too much work into it to delete it, and although I want to get it working, we have 3.5 more hours and after duedates, all motivation usually vanishes. 
+
+
+
+
 troubleshooting_message = "Ensure the phyphox app is running and configured correctly. Make a simple custom experiment which reads accelerometer, gyroscope and uncalibrated magnetometer data. Remote access must be enabled and \"server_ip\" must be set to the IP it shows. The device running this code must be on the same network, university/school networks will mess things up. Using a mobile hotspot is recommended for such situations. This code has only been tested on IOS, so we don't know if the android version works the same way. "
 server_ip = "http://192.168.12.149:80"
 data_collection_step = 0.01  # 100 Hz

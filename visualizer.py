@@ -11,7 +11,24 @@ from pathlib import Path
 
 def get_quat_from_vec(v_spatial, negate_z=False)-> np.ndarray:
     """
-    
+    Generate a quaternion that rotates the Z-axis to align with a given 3D vector.
+
+    Parameters
+    ----------
+    v_spatial : np.ndarray
+        A 3D vector to align the Z-axis with.
+    negate_z : bool, optional
+        If True, aligns with the negative Z-axis instead of positive (default is False).
+
+    Returns
+    -------
+    np.ndarray
+        Quaternion in [w, x, y, z] format that rotates Z-axis to the given vector.
+
+    Notes
+    -----
+    - Handles edge cases when vectors are aligned or opposite.
+    - MuJoCo expects quaternion format [w, x, y, z].
     """
     # Normalize
     v_spatial = v_spatial / np.linalg.norm(v_spatial)
@@ -40,15 +57,37 @@ def get_quat_from_vec(v_spatial, negate_z=False)-> np.ndarray:
 
 def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estimator: Estimator, do_3D_vis=True, show_extra_vectors = False, show_spatial_coords=False, show_body_coords=False):
     """
-    Performs a simulation on a pandas dataframe with header names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
-    There is the option to not do a full 3D visualization
-    Returns data for graphing:
-        times-the timestamps
-        rotation_angles-the quaterion's rotation angle
-        euler_angles-the euler angles at each timesteo
-        estimated_error-the filter's estimated error at each time step. 
-        gyro_bias_estimate-the magnitude of the bias estimate. 
-    """  
+    Simulates sensor data using an estimator filter and visualizes orientation in MuJoCo.
+
+    Parameters
+    ----------
+    csv_data : pd.DataFrame
+        Sensor data with columns ['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'].
+    time_step : float
+        Time step (seconds) between each data sample.
+    estimator : Estimator
+        Estimator object with time_step(), get_estimated_error, get_bias, get_v_hat_a, get_v_hat_m.
+    do_3D_vis : bool, optional
+        If True, enables 3D MuJoCo visualization (default is True).
+    show_extra_vectors : bool, optional
+        If True, shows v_hat_a and v_hat_m in the viewer (default is False).
+    show_spatial_coords : bool, optional
+        If True, shows global frame axes (default is False).
+    show_body_coords : bool, optional
+        If True, shows body frame axes (default is False).
+
+    Returns
+    -------
+    tuple
+        (times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw)
+
+    Notes
+    -----
+    - Uses Mahony filter or similar via Estimator class.
+    - Visualization is real-time and syncs simulated time with wall clock.
+    - Handles filter initialization and orientation updating.
+    - Optionally visualizes magnetic and accelerometer estimated directions.
+    """ 
     #Grab the initial values
     row = csv_data.iloc[0]
     raw_mag_vector = np.array([row['mx'], row['my'], row['mz']])

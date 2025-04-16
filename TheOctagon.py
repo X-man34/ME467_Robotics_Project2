@@ -46,7 +46,7 @@ def plot_gyro_bias(times, biases):
 if __name__ == "__main__":
 
     # THE OCTAGON   
-    # Pit various filters against eachother with multithreading. !
+    # Pit various filters against eachother with multithreading!
 
 
     # This code is more fluid and messy and for trying stuff out and debugging. 
