@@ -113,10 +113,10 @@ Over the course of the motion, the phone rotated a total of approximately 8,572 
 # FIXME update these after final check of code
 
 ![Figure 2-1 Rads](fig/Fig_2-1a_(rad).png)
-*Fig 2-1a: Estimated rotation angle over time (radians)*
+*Fig 2-1a: Mahony Estimated rotation angle over time (radians)*
 
 ![Figure 2-1 Degrees](fig/Fig_2-1b_(degree).png)
-*Fig 2-1b: Estimated rotation angle over time (degrees)*
+*Fig 2-1b: Mahony Estimated rotation angle over time (degrees)*
 
 ### Observations
 
@@ -183,11 +183,44 @@ It appears to work moderately well as
 
 In Question 4, we implemented two additional orientation estimation methods: the naïve gyroscope integration method and the TRIAD (Tri-axial Attitude Determination) method. These estimators were used to compare against the Mahony filter implemented in previous questions. We evaluated their performance on the input data from Question 2 as well as our own phone dataset from Question 3.
 
+### (a) Naïve Gyroscope Integration Method
+
+We implemented the naïve estimator by integrating the raw gyroscope measurements over time using the same quaternion exponential update technique from Question 1. This method estimates orientation purely based on angular velocity, without any correction for drift or sensor error. It is simple to implement but susceptible to long-term inaccuracy.
+
+
+### (b) TRIAD (Tri-axial Attitude Determination) Method
+
+The TRIAD method was implemented using the normalized gravity and magnetic field vectors as references, and the corresponding accelerometer and magnetometer readings from the IMU as measurements. At each time step, we constructed a direction cosine matrix from the triads and computed the rotation matrix algebraically. This method does not accumulate error over time, but its accuracy depends heavily on the quality of the accelerometer and magnetometer readings at each moment.
+
 ### Results
 
-#### (c)
+#### (c) Naïve Gyroscope Integration Method and TRIAD Method
 
-#### (d)
+We processed the input file from Question 2 using the naïve gyroscope integration method and computed the rotation angle $\theta(t)$ at each time step. This angle was extracted from the quaternion’s axis-angle representation and plotted with respect to time.
+
+A video visualization of this method can be seen in `Fig_4-1.mp4`.
+
+![Figure 4-2](fig/Fig_4-2.png)  
+*Fig 4-2: Rotation angle over time using the naïve gyroscope integration method.*
+
+The rotation angle increases continuously during motion, as expected, but small integration errors accumulate over time, causing drift. This method performs well in the short term but is not reliable for long-term estimation without correction.
+
+---
+
+We then processed the same dataset using the TRIAD method and plotted the estimated rotation angle over time.
+
+A video visualization is available in `Fig_4-3.mp4`.
+
+![Figure 4-4](fig/Fig_4-4.png)  
+*Fig 4-4: Rotation angle over time using the TRIAD method.*
+
+The TRIAD estimate tracks the general shape of the motion accurately but is more sensitive to noise in the magnetometer and accelerometer. Sudden spikes or jitter  appear in the plot if either sensor experiences interference or measurement error. The method remains stable over time due to the lack of integration drift.
+
+
+#### (d) Estimated Rotation Angle – TRIAD Method
+
+We are using the same file from question 3 earlier,  `charlie_phone_540.csv` as the input dataset to the filter. In this dataset, the phone was rotated a total of 540 degrees: first 180° about the phone’s z-axis, then 180° about the y-axis, and finally 180° about the x-axis. A video showing the filter’s visualization of this sequence is included in `fig/Fig_3-1.mp4`.
+
 
 #### (e)
 
