@@ -52,7 +52,7 @@ The TRIAD (Tri-Axial Attitude Determination) method estimates orientation using 
 ### Caleb's Custom Filter
 One of the main shortcomings (yet at the same time, its appeal) of the pure TRIAD method is its non-time dependence. That is, if you just provide the data at a single instant in time, TRIAD can provide you the rotation matrix. However this causes the estimator to be jumpy, and skip all around when that is obviously not how real motion works. Caleb's filter attempts to solve this problem by using many aspects of the Mahony filter, with one key difference. The final result has the same  magnetic correction, quaternion update, and estimation of gravity and north vectors as the Mahony Filter, but the innovation term `omega_mes` is calculated uniquely. 
 
-`omega_me is calculated as follows` 
+`omega_mes is calculated as follows` 
 A rotation matrix is created using the TRIAD function. 
 We can use this matrix to write an equation:
 

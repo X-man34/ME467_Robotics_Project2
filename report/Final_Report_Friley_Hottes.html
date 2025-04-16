@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Final_Report_Friley_Hottes</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <script
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+  type="text/javascript"></script>
+</head>
+<body>
+<h1 id="orientation-estimation-using-imu-data">Orientation Estimation
+using IMU data</h1>
+<h3 id="authors">Authors</h3>
+<ul>
+<li>Caleb Hottes</li>
+<li>Charles Friley</li>
+</ul>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol type="1">
+<li><a href="#introduction">Introduction</a><br />
+</li>
+<li><a href="#estimators">Estimators</a><br />
+2.1. <a href="#naïve-gyroscope-integration-dead-reckoning">Naïve
+Gyroscope Integration (Dead Reckoning)</a><br />
+2.2. <a href="#mahony-filter">Mahony Filter</a><br />
+2.3. <a href="#triad-method">TRIAD Method</a><br />
+2.4. <a href="#calebs-custom-filter">Caleb’s Custom Filter</a><br />
+2.5. <a href="#charles-custom-filter">Charles’ Custom Filter</a><br />
+</li>
+<li><a href="#question-1">Question 1: Naïve Gyroscope
+Integration</a><br />
+</li>
+<li><a href="#question-2-mahony-filter-implementation">Question 2:
+Mahony Filter Implementation</a><br />
+</li>
+<li><a href="#question-3">Question 3: Mahony Filter on Real
+Data</a><br />
+</li>
+<li><a href="#question-4">Question 4: Naïve, TRIAD, and
+Comparisons</a><br />
+6.1. <a href="#a-naïve-gyroscope-integration-method">(a) Naïve
+Estimator</a><br />
+6.2. <a href="#b-triad-tri-axial-attitude-determination-method">(b)
+TRIAD Method</a><br />
+6.3. <a
+href="#c-naïve-gyroscope-integration-method-and-triad-method">(c)
+Rotation Angle Comparison</a><br />
+6.4. <a
+href="#d-roll-pitch-yaw-and-error-estimation--naïve-and-triad-methods">(d)
+RPY and Error Estimation</a><br />
+6.5. <a href="#e-bonus">(e) Bonus</a></li>
+</ol>
+<h2 id="introduction">Introduction</h2>
+<p>In this project, we will be implementing three different orientation
+algorithms to estimate the orientation of a phone over time. A naïve
+gyroscope integration (dead reckoning) algorithm is used in Question 1
+and Question 4a. The Mahony filter is used in Questions 2 and 3, and
+serves as the baseline for comparison in Question 4. Finally, the TRIAD
+method is introduced in Question 4b and compared against the other
+methods in Questions 4c and 4d.</p>
+<p>The framework of this codebase allows for the easy creation of
+different filters termed “estimators”. In <code>filters.py</code> there
+is an abstract class called <code>Estimator</code> which can be extended
+to implement various filters and estimators. Because of the code
+structure, we decided to make some of our own filters as well, so there
+are 5 implementations: - Naïve Estimator (required) - Mahony Filter
+(required) - TRIAD (Tri-Axial Attitude Determination) Estimator
+(required) - Mahony with TRIAD filter (Caleb’s idea) - Hybrid
+Mahony-TRIAD filter (Charles’ idea)</p>
+<p>These subclasses of <code>Estimator</code> are then initialized and
+passed into the <code>simulate_and_visualize_data</code> method in
+<code>visualizer</code>. This project structure allows for the rapid
+creation and iteration of different filters. Additionally 3D
+visualization techniques along with 2D plots were used extensively in
+the debugging process.</p>
+<h2 id="overview-of-estimators">Overview of Estimators</h2>
+<h3 id="naïve-gyroscope-integration-dead-reckoning">Naïve Gyroscope
+Integration (Dead Reckoning)</h3>
+<p>The naïve gyroscope integration algorithm estimates orientation by
+directly integrating the angular velocity over time. It assumes that the
+gyroscope data is accurate and doesn’t include any corrections from
+other sensors. This method is simple and fast but suffers from drift
+over time, especially if there’s any bias or noise in the gyroscope. It
+works well in the short term but quickly becomes inaccurate during
+longer or more complex motion.</p>
+<h3 id="mahony-filter">Mahony Filter</h3>
+<p>The Mahony filter is a nonlinear complementary filter that combines
+gyroscope integration with landmark innovation using accelerometer and
+magnetometer data. It corrects drift and stabilizes orientation over
+time by aligning the estimated orientation with gravity (from the
+accelerometer) and magnetic north (from the magnetometer). It also
+dynamically estimates gyroscope bias. This makes the Mahony filter more
+reliable than dead reckoning, especially for longer durations or when
+precise orientation is important. It was observed during testing and
+debugging that the Mahony filter performs well when things are moving
+rapidly but suffers from drift and compounding error when things are
+still.</p>
+<h3 id="triad-method">TRIAD Method</h3>
+<p>The TRIAD (Tri-Axial Attitude Determination) method estimates
+orientation using two reference vectors: gravity and magnetic north. It
+constructs two orthonormal frames — one from known inertial vectors and
+one from measured body-frame vectors — and computes the rotation matrix
+that aligns them. Unlike the other two methods, TRIAD is algebraic and
+doesn’t rely on time integration, which means it gives an immediate
+estimate of orientation at each time step, but doesn’t track changes
+over time or handle gyroscope data.</p>
+<h3 id="calebs-custom-filter">Caleb’s Custom Filter</h3>
+<p>One of the main shortcomings (yet at the same time, its appeal) of
+the pure TRIAD method is its non-time dependence. That is, if you just
+provide the data at a single instant in time, TRIAD can provide you the
+rotation matrix. However this causes the estimator to be jumpy, and skip
+all around when that is obviously not how real motion works. Caleb’s
+filter attempts to solve this problem by using many aspects of the
+Mahony filter, with one key difference. The final result has the same
+magnetic correction, quaternion update, and estimation of gravity and
+north vectors as the Mahony Filter, but the innovation term
+<code>omega_mes</code> is calculated uniquely.</p>
+<p><code>omega_mes is calculated as follows</code> A rotation matrix is
+created using the TRIAD function. We can use this matrix to write an
+equation:</p>
+<p><span class="math display">\[\hat{R} = AR_{Tr}\]</span></p>
+<p>Where <span class="math inline">\(\hat{R}\)</span> is our current
+estimate of the rotation matrix, <span
+class="math inline">\(R_{Tr}\)</span> is the rotation matrix derived
+directly from data using the TRIAD method, and <span
+class="math inline">\(A\)</span> is an unknown rotation matrix relating
+the two. Solving this we get: <span class="math display">\[A =
+\hat{R}R_{Tr}^T\]</span></p>
+<p>This rotation matrix <span class="math inline">\(A\)</span> can be
+thought of as the rotation from where TRIAD says we are to where all our
+previous estimations (a combination of TRIAD and Mahony stuff) says we
+are. Then we can turn this rotation <span
+class="math inline">\(A\)</span> into a angular velocity by representing
+it as an axis-angle and computing <span
+class="math inline">\(\theta\hat{k}\)</span>. This innovation term is
+then multiplied by a gain and subtracted from the gyroscope data
+yielding: <span class="math display">\[\omega_{mes}=\omega_{y} -
+k_{p}(\theta\hat{k})\]</span></p>
+<p>This <span class="math inline">\(\omega_{mes}\)</span> is used just
+like it is in the Mahony filter. This filter succeeds at removing the
+jerkiness of the pure TRIAD estimator and shines where TRIAD is best,
+not drifting and remaining accurate for long periods of time. However it
+falls short when things start moving fast.</p>
+<h3 id="charles-custom-filter">Charles’ Custom Filter</h3>
+<p>Charles’ filter is a variant of Caleb’s filter and combines the
+Mahony and Mahony-TRIAD filters into a hybrid. The goal is to use the
+best filter for the task at hand. TRIAD is used then things are
+relatively still and Mahony when there is movement. This is accomplished
+by computing the magnitude of the angular velocity data and comparing it
+to a predefined threshold like .1. If the value is greater than that, a
+plain Mahony filter is used but if its lower then the Modified Mahony
+Filter is used, utilizing the TRIAD method to compute the innovation as
+described above. This has good results and works as intended.</p>
+<h2 id="question-1">Question 1</h2>
+<p>In question 1 we implement a naïve gyroscope integration in order to
+estimate orientation with a set of given inputs. These inputs simulate
+perfect gyroscope data with no bias or drift.</p>
+<p>The given inputs can be represented by various rotation matrixes.</p>
+<ol type="1">
+<li><span class="math inline">\(R_{x,\frac{\pi}{4}}\)</span> - Rotate
+about the <strong>x-axis</strong> by <span
+class="math inline">\(\frac{\pi}{4}\)</span> radians<br />
+</li>
+<li><span class="math inline">\(R_{z,\frac{\pi}{4}}\)</span> - Rotate
+about the <strong>z-axis</strong> by <span
+class="math inline">\(\frac{\pi}{4}\)</span> radians<br />
+</li>
+<li><span class="math inline">\(R_{x,-\frac{\pi}{4}}\)</span> - Rotate
+about the <strong>x-axis</strong> by <span
+class="math inline">\(-\frac{\pi}{4}\)</span> radians<br />
+</li>
+<li><span class="math inline">\(R_{z,-\frac{\pi}{4}}\)</span> - Rotate
+about the <strong>z-axis</strong> by <span
+class="math inline">\(-\frac{\pi}{4}\)</span> radians</li>
+</ol>
+<p>If we multiply all these rotation matrices we can see our expected
+result:</p>
+<p><span class="math inline">\(R_{x,\frac{\pi}{4}} R_{z,\frac{\pi}{4}}
+R_{x,-\frac{\pi}{4}} R_{z,-\frac{\pi}{4}} = \begin{bmatrix}
+0.8536 &amp; 0.1464 &amp; -0.5000 \\
+-0.2500 &amp; 0.9571 &amp; -0.1464 \\
+0.4571 &amp; 0.2500 &amp; 0.8536
+\end{bmatrix}\)</span></p>
+<p>Which corresponds with this quaternion:</p>
+<p><span class="math inline">\(q_{final}=0.9571 &lt;  0.1036, -0.2500,
+-0.1036 &gt;\)</span></p>
+<h3 id="results">Results</h3>
+<p><span class="math inline">\(q(1)=0.9571 &lt;  0.1036, -0.2500,
+-0.1036 &gt;\)</span></p>
+<p>We simulated this rotation over time and obtained the exact same
+final orientation as expected from the matrix multiplication. This
+verifies that our implementation of quaternion integration is correct.
+You can see a visualization of this rotation in Fig. 1.1 in the fig file
+under <code>fig\Fig 1-1.mp4</code>.</p>
+<h3 id="does-it-hold-that-q0-q1">Does it hold that <span
+class="math inline">\(q(0) = q(1)\)</span>?</h3>
+<p>No, it does not hold that <span class="math inline">\(q(0) =
+q(1)\)</span>. We can see from our results that:</p>
+<p><span class="math inline">\(q(0)=1 &lt;  0, 0, 0 &gt;\)</span></p>
+<p><span class="math inline">\(q(1)=0.9571 &lt;  0.1036, -0.2500,
+-0.1036 &gt;\)</span></p>
+<p>This also makes conceptual sense because rotations in 3D space are
+not commutative.</p>
+<h2 id="question-2-mahony-filter-implementation">Question 2: Mahony
+Filter Implementation</h2>
+<p>In question 2 we implement a Mahony filter to estimate a phone’s
+orientation over time with a given csv file containing gyroscope,
+accelerometer, and magnetometer data over time. The motion consists of a
+phone that is still for a few seconds, and is then picked up and rotated
+around randomly, but slowly and smoothly, and then set back down.</p>
+<p>We tuned out K values to be the following based on trial and
+error.</p>
+<p><span class="math inline">\(k_p=1, k_I=.3, k_a=.8,
+k_m=.2\)</span></p>
+<p>We visualized this motion using MuJoCo that can be seen in
+<code>fig\Fig_2-2.mp4</code></p>
+<h3 id="results-1">Results</h3>
+<p>To calculate the rotation angle over time, we convert the estimated
+orientation quaternion at each time step into an axis-angle
+representation. We then extract the angle component and plot it with
+respect to time.</p>
+<p>Figures 2-1a and 2-1b below show the rotation angle over time in
+radians and degrees, respectively. The phone remains still at the
+beginning, is then slowly rotated in multiple directions, and eventually
+returns to rest.</p>
+<p>Over the course of the motion, the phone rotated a total of
+approximately 8,572 radians, or 491,165 degrees. This total includes all
+incremental rotations.</p>
+<p><img src="fig/Fig_2-1a_(rad).png" alt="Figure 2-1 Rads" /> <em>Fig
+2-1a: Mahony Estimated rotation angle over time (radians)</em></p>
+<p><img src="fig/Fig_2-1b_(degree).png" alt="Figure 2-1 Degrees" />
+<em>Fig 2-1b: Mahony Estimated rotation angle over time
+(degrees)</em></p>
+<h3 id="observations">Observations</h3>
+<p>While working on this project, we noticed several behaviors of the
+Mahony filter:</p>
+<ul>
+<li><p>When the magnetometer gain <span
+class="math inline">\(k_m\)</span> was set too high, the phone’s
+orientation estimate became overly constrained. Specifically, during
+large flips, the filter would only allow the phone to rotate about 90
+degrees, even when the phone was flipped fully. This prevented full
+rotations and caused the phone to align too strongly with magnetic
+north.</p></li>
+<li><p>The filter showed a tendency to drift toward magnetic north very
+slowly. For low values of <span class="math inline">\(k_m\)</span>, the
+phone would gradually oscillate around magnetic north until it converged
+on the correct orientation. For larger values of <span
+class="math inline">\(k_m\)</span>, it would snap into place much more
+quickly. We discovered this when testing with our own data, where the
+phone was sitting still for a full minute, and we observed the filter
+slowly orienting it correctly over time. This behavior occurs because
+the initial orientation is assumed to be the identity quaternion, which
+does not match the phone’s actual orientation. This led us to consider
+using the TRIAD method to initialize the orientation more accurately
+before switching to the Mahony filter for continuous updates.</p></li>
+<li><p>We verified the correctness of the internal orientation estimate
+using 3D visualization in MuJoCo. By observing the rotated magnetic
+reference vector <span class="math inline">\(\hat{v}_m\)</span>, we saw
+that it remained fixed in the <strong>spatial</strong> (inertial) frame
+as expected. This confirmed that the estimated orientation was rotating
+the internal reference vectors correctly.</p></li>
+<li><p>To further test the filter’s sensitivity, we placed a magnet near
+the phone. In the 3D visualization, we observed a clear reaction in the
+filter’s output — the orientation estimate became unstable or skewed.
+This confirmed that the magnetometer data was being used actively and
+was susceptible to external magnetic disturbances.</p></li>
+</ul>
+<h2 id="question-3">Question 3</h2>
+<p>In Question 3, we used the Mahony filter developed in Question 2 to
+process IMU data collected from our own phone. We extracted gyroscope,
+accelerometer, and magnetometer data and exported it as a CSV file. The
+phone was able to sample data at approximately 100 Hz. While each sensor
+had its own timestamp, the sampling intervals were sufficiently close
+that we used the accelerometer timestamps as a common reference across
+all measurements.</p>
+<p>We used <code>charlie_phone_540.csv</code> as the input dataset to
+the filter. In this dataset, the phone was rotated a total of 540
+degrees: first 180° about the phone’s z-axis, then 180° about the
+y-axis, and finally 180° about the x-axis. A video showing the filter’s
+visualization of this sequence is included in
+<code>fig/Fig_3-1.mp4</code>.</p>
+<h3 id="results-2">Results</h3>
+<h4 id="a-roll-pitch-yaw-vs.-time">(a) Roll, Pitch, Yaw vs. Time</h4>
+<p>We computed the roll, pitch, and yaw angles by converting the
+estimated orientation quaternion from the Mahony filter into Euler
+angles. These angles were then plotted with respect to time.</p>
+<p><img src="fig/Fig_3-2.png" alt="Figure 3-2" /> <em>Fig 3-2: Roll,
+Pitch, Yaw vs Time</em></p>
+<p>The plot confirms the intended motion sequence. Initially, we observe
+a rotation about the z-axis (yaw), followed by rotation about the y-axis
+(pitch), and finally about the x-axis (roll), consistent with the
+phone’s movement.</p>
+<h4 id="b-estimated-error-vs.-time">(b) Estimated Error vs. Time</h4>
+<p>To estimate the Mahony filter’s error signal, we used the formula
+given in Equation (6):</p>
+<p><span class="math display">\[
+E_{\text{mes}} = 1 - \mathbf{v}_a \cdot \hat{\mathbf{v}}_a + 1 -
+\mathbf{v}_m \cdot \hat{\mathbf{v}}_m
+\]</span></p>
+<p>This error metric captures the disagreement between the measured
+sensor directions and the expected directions from the current
+orientation estimate.</p>
+<p><img src="fig/Fig_3-3.png" alt="Figure 3-3" /> <em>Fig 3-3: Estimated
+Error vs Time</em></p>
+<p>The error peaks during periods of rapid motion, as expected. When the
+phone is still, the orientation estimate converges, and the error
+reduces.</p>
+<h4 id="c-gyroscope-bias-estimate-vs.-time">(c) Gyroscope Bias Estimate
+vs. Time</h4>
+<p>The Mahony filter also maintains an internal estimate of the
+gyroscope bias, which is updated over time to account for sensor drift.
+We recorded and plotted this bias estimate.</p>
+<p><img src="fig/Fig_3-4.png" alt="Figure 3-4" /><br />
+<em>Fig 3-4: Estimated Gyroscope Bias vs Time</em></p>
+<p>The bias estimate increases during motion as expected.</p>
+<h2 id="question-4">Question 4</h2>
+<p>Question 4 focuses on the implementation of the TRIAD and Naïve
+estimators. In part A we are asked to implement the Naïve estimator. Its
+implementation can be found in <code>filters.py</code> file in the class
+<code>NaiveEstimator(Estimator)</code>. Its is not very complicated and
+simply implements a equation given in the project instructions which I
+will repeat for clarity: <span
+class="math display">\[\mathbf{q}_{k+1}=e^{\frac {1} {2}
+\Omega(\omega)\delta t}\mathbf{q}_{k}\]</span> It appears to work
+moderately well as ### Results</p>
+<h2 id="question-4-1">Question 4</h2>
+<p>In Question 4, we implemented two additional orientation estimation
+methods: the naïve gyroscope integration method and the TRIAD (Tri-axial
+Attitude Determination) method. These estimators were used to compare
+against the Mahony filter implemented in previous questions. We
+evaluated their performance on the input data from Question 2 as well as
+our own phone dataset from Question 3.</p>
+<h3 id="a-naïve-gyroscope-integration-method">(a) Naïve Gyroscope
+Integration Method</h3>
+<p>We implemented the naïve estimator by integrating the raw gyroscope
+measurements over time using the same quaternion exponential update
+technique from Question 1. This method estimates orientation purely
+based on angular velocity, without any correction for drift or sensor
+error. It is simple to implement but susceptible to long-term
+inaccuracy.</p>
+<h3 id="b-triad-tri-axial-attitude-determination-method">(b) TRIAD
+(Tri-axial Attitude Determination) Method</h3>
+<p>The TRIAD method was implemented using the normalized gravity and
+magnetic field vectors as references, and the corresponding
+accelerometer and magnetometer readings from the IMU as measurements. At
+each time step, we constructed a direction cosine matrix from the triads
+and computed the rotation matrix algebraically. This method does not
+accumulate error over time, but its accuracy depends heavily on the
+quality of the accelerometer and magnetometer readings at each
+moment.</p>
+<h3 id="results-3">Results</h3>
+<h4 id="c-naïve-gyroscope-integration-method-and-triad-method">(c) Naïve
+Gyroscope Integration Method and TRIAD Method</h4>
+<p>We processed the input file from Question 2 using the naïve gyroscope
+integration method and computed the rotation angle <span
+class="math inline">\(\theta(t)\)</span> at each time step. This angle
+was extracted from the quaternion’s axis-angle representation and
+plotted with respect to time.</p>
+<p>A video visualization of this method can be seen in
+<code>Fig_4-1.mp4</code>.</p>
+<p><img src="fig/Fig_4-2.png" alt="Figure 4-2" /><br />
+<em>Fig 4-2: Rotation angle over time using the naïve gyroscope
+integration method.</em></p>
+<p>The rotation angle increases continuously during motion, as expected,
+but small integration errors accumulate over time, causing drift. This
+method performs well in the short term but is not reliable for long-term
+estimation without correction.</p>
+<hr />
+<p>We then processed the same dataset using the TRIAD method and plotted
+the estimated rotation angle over time.</p>
+<p>A video visualization is available in <code>Fig_4-3.mp4</code>.</p>
+<p><img src="fig/Fig_4-4.png" alt="Figure 4-4" /><br />
+<em>Fig 4-4: Rotation angle over time using the TRIAD method.</em></p>
+<p>The TRIAD estimate tracks the general shape of the motion accurately
+but is more sensitive to noise in the magnetometer and accelerometer.
+Sudden spikes or jitter appear in the plot if either sensor experiences
+interference or measurement error. The method remains stable over time
+due to the lack of integration drift.</p>
+<h4
+id="d-roll-pitch-yaw-and-error-estimation-naïve-and-triad-methods">(d)
+Roll, Pitch, Yaw and Error Estimation — Naïve and TRIAD Methods</h4>
+<p>We used the same dataset from Question 3,
+<code>charlie_phone_540.csv</code>, as the input for both the naïve
+estimator and the TRIAD method. In this dataset, the phone undergoes a
+sequence of three 180° rotations: first about the phone’s z-axis (yaw),
+then about the y-axis (pitch), and finally about the x-axis (roll).</p>
+<p>Below are the roll, pitch, and yaw angles computed from each
+estimator, as well as the corresponding error estimates using the error
+formula:</p>
+<p><span class="math display">\[
+E_{\text{mes}} = 1 - \mathbf{v}_a \cdot \hat{\mathbf{v}}_a + 1 -
+\mathbf{v}_m \cdot \hat{\mathbf{v}}_m
+\]</span></p>
+<hr />
+<h5
+id="roll-pitch-yaw-vs.-time-naïve-gyroscope-integration-method">Roll,
+Pitch, Yaw vs. Time — Naïve Gyroscope Integration Method</h5>
+<p><img src="fig/Fig_4-5a.png" alt="Figure 4-5a" /><br />
+<em>Fig 4-5a: Roll, Pitch, Yaw vs. Time using the naïve
+estimator.</em></p>
+<h5
+id="estimated-error-vs.-time-naïve-gyroscope-integration-method">Estimated
+Error vs. Time — Naïve Gyroscope Integration Method</h5>
+<p><img src="fig/Fig_4-5b.png" alt="Figure 4-5b" /><br />
+<em>Fig 4-5b: Estimated error vs. time using the naïve
+estimator.</em></p>
+<hr />
+<h5 id="roll-pitch-yaw-vs.-time-triad-method">Roll, Pitch, Yaw vs. Time
+— TRIAD Method</h5>
+<p><img src="fig/Fig_4-5c.png" alt="Figure 4-5c" /><br />
+<em>Fig 4-5c: Roll, Pitch, Yaw vs. Time using the TRIAD method.</em></p>
+<h5 id="estimated-error-vs.-time-triad-method">Estimated Error vs. Time
+— TRIAD Method</h5>
+<p><img src="fig/Fig_4-5d.png" alt="Figure 4-5d" /><br />
+<em>Fig 4-5d: Estimated error vs. time using the TRIAD method.</em></p>
+<hr />
+<p>The naïve method showed clear yaw, pitch, then roll movements as
+expected, but the TRIAD filter failed at accurately capturing this
+sequential motion. This behavior is clearly visible in the visualization
+videos:<code>Fig_4-6a.mp4</code> for the naïve method and
+<code>Fig_4-6b.mp4</code> for the TRIAD method.</p>
+<h4 id="e">(e)</h4>
+<p>Our mahony filter has problems with drifting when the IMU is still
+and keeping up with the phone when its flipped around quickly. The TRIAD
+filter on the other hand works best when nothing is moving. Over long
+datasets, despite being grounded with the gravity and north vector’s the
+Mahony filters drift seems to do it a disservice while the TRIAD filter
+doesn’t suffer from this issue. However when it comes to fast movements,
+the TRIAD filter almost looks random, it jerks all over and is basically
+useless. The dataset you provided has a lot of motion in it and the
+Mahony filter is probably the best for it, but if the phone were in a
+car on a long road trip, or even a normal drive, the TRIAD filter would
+probably be the best. The characteristics of the dataset of a phone in a
+car would be gravity and magnetometer vectors that hardly change but all
+sorts of small random angular velocities. This would mess up the mahony
+filter and it would probably be jittery, while the TRIAD filter with its
+consistent landmarks would likely be more stable. The Charlie filter
+would likly excel in all these scenarios because in the car, the omega
+values would be small and thus it always use triad, but maybe if you
+were really accelerating, or hit a bump etc, it would switch to mahony.
+But with the provided data, it uses mahony for almost the whole time,
+but at beginning and end it uses TRIAD. It also sort of grounds the
+estimate midway for a few time steps during the fast (relatively fast,
+compared to sitting on the table.) movement when the phone slows down or
+switches direction.</p>
+<p>After writing the prior paragraph, Charles went out in his car and
+took some data of normal driving with the phone taped to the dashboard.
+He did a bunch of turns and hit a bunch of bumps and ended in the same
+place that he started. We then pitted different filters against
+eachother in <code>TheOctagon.py</code>. The results: all the
+predictions were wrong. The mahony filter beat everything by a long shot
+and ended in the same spot. The triad filter just twitched and didn’t
+respond to any of the mag data, so it was probably interfered with. The
+Naïve filter just Naïvely spun around and got lost.</p>
+</body>
+</html>
