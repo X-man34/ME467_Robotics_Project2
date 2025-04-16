@@ -6,6 +6,8 @@ from Question2 import *
 from filters import *
 from Question3 import plot_error_estimates, plot_euler_angles
 from pathlib import Path
+import threading
+
 
 
 if __name__ == "__main__":
@@ -30,4 +32,12 @@ if __name__ == "__main__":
     plot_euler_angles(times, roll, pitch, yaw)
 
     plot_error_estimates(times, error_estimates)
-    
+
+    naive_estimator = NaiveEstimator(dt)
+    # Perfrom the simulation and get the data
+    times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw = simulate_and_visualize_data(csv_data, dt, naive_estimator,  do_3D_vis=True, show_body_coords=False, show_extra_vectors=False, show_spatial_coords=True)
+
+    #Plot the data. 
+    plot_euler_angles(times, roll, pitch, yaw)
+
+    plot_error_estimates(times, error_estimates)
