@@ -1,4 +1,4 @@
-from pathlib import Path
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from visualizer import simulate_and_visualize_data
@@ -44,8 +44,7 @@ if __name__ == "__main__":
 
     # Load pre recorded CSV data
     #TODO load data live and have a real time estimate of what is going on. 
-    data_path = Path("csv_files") / "charlie_phone_540.csv"
-    csv_data = pd.read_csv(str(data_path))
+    csv_data = pd.read_csv('csv_files/charlie_still_weird.csv')
     csv_data = csv_data.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
     csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
     csv_data["az"] = csv_data["az"] * -1# Need to flip z axis to match the coord system for this project. 
@@ -61,6 +60,3 @@ if __name__ == "__main__":
     plot_error_estimates(times, error_estimates)
 
     plot_gyro_bias(times, bias_estimates)
-    
-
-
