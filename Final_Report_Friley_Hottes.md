@@ -1,8 +1,22 @@
 # Title
 
+table of contents?
+audience is staici and employers, so its ok to explain what mahony is
+center all math equations? $$
+## Introduction
 In this project, we will be implementing three different orientation algorithms to estimate the orientation of a  phone over time. A naïve gyroscope integration (dead reckoning) algorithm is used in Question 1 and Question 4a. The Mahony filter is used in Questions 2 and 3, and serves as the baseline for comparison in Question 4. Finally, the TRIAD method is introduced in Question 4b and compared against the other methods in Questions 4c and 4d.
 
-## Algorithm Explanations
+The framework of this codebase allows for the easy creation of different filters termed "estimators". In `filters.py` there is an abstract class called `Estimator` which can be extended to implement various filters and estimators. There are 5 implementations:
+- Naïve Estimator (required) 
+- Mahony Filter (required)
+- TRIAD (Tri-Axial Attitude Determination) Estimator (required)
+- Mahony with TRIAD filter (Caleb's idea)
+- Hybrid Mahony-TRIAD filter (Charles' idea)
+
+These subclasses of `Estimator` are then initialized and passed into the `simulate_and_visualize_data` method in `visualizer`. This project structure allows for the rapid creation and iteration of different filters. Additionally 3D visualization techniques along with 2D plots were used extensively in the debugging process. 
+
+
+## Estimators
 
 ### Naïve Gyroscope Integration (Dead Reckoning)
 
@@ -10,18 +24,31 @@ The naïve gyroscope integration algorithm estimates orientation by directly int
 
 ### Mahony Filter
 
-The Mahony filter is a nonlinear complementary filter that combines gyroscope integration with feedback correction using accelerometer and magnetometer data. It helps correct drift and stabilize orientation over time by aligning the estimated orientation with gravity (from the accelerometer) and magnetic north (from the magnetometer). It also estimates gyroscope bias dynamically. This makes the Mahony filter more reliable than dead reckoning, especially for longer durations or when precise orientation is important.
+The Mahony filter is a nonlinear complementary filter that combines gyroscope integration with landmark innovation using accelerometer and magnetometer data. It corrects drift and stabilizes orientation over time by aligning the estimated orientation with gravity (from the accelerometer) and magnetic north (from the magnetometer). It also dynamically estimates gyroscope bias. This makes the Mahony filter more reliable than dead reckoning, especially for longer durations or when precise orientation is important. It was observed during testing and debugging that the Mahony filter performs well when things are moving rapidly but suffers from drift and compounding error when things are still. 
 
 ### TRIAD Method
 
 The TRIAD (Tri-Axial Attitude Determination) method estimates orientation using two reference vectors: gravity and magnetic north. It constructs two orthonormal frames — one from known inertial vectors and one from measured body-frame vectors — and computes the rotation matrix that aligns them. Unlike the other two methods, TRIAD is algebraic and doesn't rely on time integration, which means it gives an immediate estimate of orientation at each time step, but doesn’t track changes over time or handle gyroscope data.
 
 ### Caleb's Custom Filter
+One of the main shortcomings (yet at the same time, its appeal) of the pure TRIAD method is its non-time dependence. That is, if you just provide the data at a single instant in time, I can provide you the rotation matrix. However this causes the estimator to be jumpy and skip all around when that is obviously not now real motion works. Caleb's filter attempts to solve this problem by using many aspects of the Mahony filter. The final result is the same as the Mahony filter, with the magnetic correction, quaternion update, and estimation of gravity and north vectors all being the same, but the innovation term `omega_mes` is calculated uniquely. A rotation matrix is created using the TRIAD function. 
+We can use this matrix to write an equation:
 
+$$\hat{R} = AR_{Tr}$$
 
+ Where $\hat{R}$ is our current estimate of the rotation matrix, $R_{Tr}$ is the rotation matrix derived directly from data using the TRIAD method, and $A$ is an unknown rotation matrix relating the two. Solving this we get:
+$$A = \hat{R}R_{Tr}^T$$
+
+This rotation matrix $A$ can be thought of as the rotation from where TRIAD says we are to where all our previous estimations (a combination of TRIAD and Mahony stuff) says we are. Then we can turn this rotation $A$ into a angular velocity by representing it as an axis-angle and computing $\theta\hat{k}$. This innovation term is then multiplied by a gain and subtracted from the gyroscope data yielding: 
+$$\omega_{mes}=\omega_{y} - k_{p}(\theta\hat{k})$$
+
+This $\omega_{mes}$ is used just like it is in the Mahony filter. This filter succeeds at removing the jerkiness of the pure TRIAD estimator and shines where TRIAD is best, not drifting and remaining accurate for long periods of time.  However it falls short when things start moving fast. 
 
 ### Charles' Custom Filter
+Charles' filter is a variant of Caleb's filter and combines the Mahony and Mahony-TRIAD filters into a hybrid. The goal is to use the best filter for the task at hand. TRIAD is used then things are relatively still and Mahony when there is movement. This is accomplished by computing the magnitude of the angular velocity data and comparing it to a predefined threshold like .1. If the value is greater than that, a plain Mahony filter is used but if its lower then the Modified Mahony Filter is used, utilizing the TRIAD method to compute the innovation as described above. This has good results and works as intended. 
 
+
+It is important however to note that all these suppositions about the relative accuracy of different filters are dependent on our visualization code and subjective comparison of what we see in the visualization versus what we remember doing. There is a potential issue with initial conditions and differing coordinate systems in the visualizer which could significancy impact the results. This may be addressed, time allowing. 
 
 
 ## Question 1
@@ -103,7 +130,15 @@ While working on this project, we noticed several behaviors of the Mahony filter
 
 - To further test the filter's sensitivity, we placed a magnet near the phone. In the 3D visualization, we observed a clear reaction in the filter’s output — the orientation estimate became unstable or skewed. This confirmed that the magnetometer data was being used actively and was susceptible to external magnetic disturbances.
 
+## Question 3
 
+In question 3 we use the Mahony filter developed in question 2 in order to process data from our own phone
+
+### Results
+
+## Question 4
+
+### Results
 
 
 
