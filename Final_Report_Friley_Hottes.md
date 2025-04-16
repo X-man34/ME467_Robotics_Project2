@@ -137,7 +137,9 @@ In question 3 we use the Mahony filter developed in question 2 in order to proce
 ### Results
 
 ## Question 4
-
+Question 4 focuses on the implementation of the TRIAD and Naïve estimators. In part A we are asked to implement the Naïve estimator. Its implementation can be found in `filters.py` file in the class `NaiveEstimator(Estimator)`. Its is not very complicated and simply implements a equation given in the project instructions which I will repeat for clarity:
+$$\mathbf{q}_{k+1}=e^{\frac {1} {2} \Omega(\omega)\delta t}\mathbf{q}_{k}$$
+It appears to work moderately well as 
 ### Results
 
 
