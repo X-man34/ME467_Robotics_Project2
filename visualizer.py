@@ -1,16 +1,14 @@
 from spatialmath.base import tr2angvec
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import time
 import mujoco as mj
 import mujoco.viewer
 from scipy.spatial.transform import Rotation as R
 from filters import Estimator
 from spatialmath import SO3
+from pathlib import Path
 
-
-# for plotting v_a_hat etc
 def get_quat_from_vec(v_spatial, negate_z=False)-> np.ndarray:
     """
     
@@ -68,7 +66,8 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estima
     # You can also ask it to use the TRIAD initial pose estimatior, but at the time of writing the implementation does not work and its not asked for question 2, so its left disabled. 
     estimator.set_initial_conditions((raw_accel_vector, raw_mag_vector))
     #Set up 3D visualization
-    model = mj.MjModel.from_xml_path(r"resources\\phone.xml")
+    xml_path = Path("resources") / "phone.xml"
+    model = mj.MjModel.from_xml_path(str(xml_path))
     mujoco_model_data = mj.MjData(model)
     # To not repeat code, if for some reason you don't want to watch the awsome visualization and just want to see the boring plots, it will open the viewer and them immediately close it. 
     # I just don't know how else to do it without repeating the for loop outside the with statement. 

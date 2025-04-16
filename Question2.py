@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from visualizer import simulate_and_visualize_data
 from filters import MahonyFilter
+from pathlib import Path
 
 def plot_raw_data(csv_data: pd.DataFrame):
     # Define percent values for each sensor
@@ -136,7 +137,9 @@ def plot_rotation_data(times, rotation_angles, title_suffix="", data_in_radians=
 
 if __name__ == "__main__":
     # Load the CSV file
-    csv_data = pd.read_csv('csv_files\question2_input.csv', header=None,
+    #Make the path compatible for all operating systems. 
+    data_path = Path("csv_files") / "question2_input.csv"
+    csv_data = pd.read_csv(str(data_path), header=None,
                     names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     
     mahony_filter = MahonyFilter(dT=.01, kp=1.0, kI=0.3, ka_nominal=.8, km_nominal=.2)

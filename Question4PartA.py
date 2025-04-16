@@ -1,4 +1,5 @@
 import spatialmath as sm
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -8,7 +9,8 @@ from visualizer import simulate_and_visualize_data
 
 if __name__ == "__main__":
     # Load the CSV file
-    csv_data = pd.read_csv('csv_files\question2_input.csv', header=None,
+    data_path = Path("csv_files") / "question2_input.csv"
+    csv_data = pd.read_csv(str(data_path), header=None,
                     names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
     
     dt = 0.01
