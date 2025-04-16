@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     # Load pre recorded CSV data
     #TODO load data live and have a real time estimate of what is going on. 
-    data_path = Path("csv_files") / "charlie_phone_540.csv"
+    data_path = Path("csv_files") / "charlie_drive_around_the_block.csv"
     csv_data = pd.read_csv(str(data_path))
     csv_data = csv_data.rename(columns={"accelerometerAccelerationX(G)": "ax", "accelerometerAccelerationY(G)": "ay", "accelerometerAccelerationZ(G)": "az", "gyroRotationX(rad/s)": "gyrox", "gyroRotationY(rad/s)": "gyroy", "gyroRotationZ(rad/s)": "gyroz", "magnetometerX(µT)": "mx", "magnetometerY(µT)": "my", "magnetometerZ(µT)": "mz", "accelerometerTimestamp_sinceReboot(s)": "t"})
     csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
@@ -68,11 +68,12 @@ if __name__ == "__main__":
 
 
     # You can play around here and put different filters up. 
-    caleb = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, caleb_filter, True, True, True,True))
+    caleb = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, mahony_filter, True, True, True,True))
     
 
-    charles = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, charlie_filter, True, True, False,True))
+    charles = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, triad_estimator, True, True, False,True))
     caleb.start()
+    
     charles.start()
     # times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw = simulate_and_visualize_data(csv_data, .01, mahony_filter, do_3D_vis=True, show_body_coords=True, show_extra_vectors=True, show_spatial_coords=True)
     
