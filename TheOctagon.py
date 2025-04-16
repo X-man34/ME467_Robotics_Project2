@@ -4,7 +4,7 @@ import threading
 import matplotlib.pyplot as plt
 from pathlib import Path
 from visualizer import simulate_and_visualize_data
-from filters import HybridMahonyTriadFilter, MahonyFilter, NaiveEstimator
+from filters import *
 from Question2 import plot_rotation_data
 
 def plot_euler_angles(times, roll, pitch, yaw):
@@ -59,22 +59,22 @@ if __name__ == "__main__":
     csv_data[["ax", "ay", "az"]] = csv_data[["ax", "ay", "az"]] * 9.80665# accelerometer data is in G's not m/s^2
     csv_data["az"] = csv_data["az"] * -1# Need to flip z axis to match the coord system for this project. 
     
-    # Load the CSV file
-    # csv_data = pd.read_csv('csv_files\question2_input.csv', header=None,
-    #                 names=['t', 'mx', 'my', 'mz', 'gyrox', 'gyroy', 'gyroz', 'ax', 'ay', 'az'])
-
-    # mahony_filter_hybrid = HybridMahonyTriadFilter(dT=.01,threshold=0.05, kp=1.0, kI=0.3, ka_nominal=.8, km_nominal=.2)
-    # naive_estimator = NaiveEstimator(0.01)
     mahony_filter = MahonyFilter(dT=.01, kp=1.0, kI=0.3, ka_nominal=.8, km_nominal=.2)
-    # mahony_thread = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, mahony_filter, True, True, True,True))
+    triad_estimator = TriadEstimator(dT=.01, kP=2)
+    naive_estimator = NaiveEstimator(.01)
+    charlie_filter = HybridMahonyTriadFilter(.01, threshold=.1, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=.5)
+    caleb_filter = MahonyWithTriadEstimator(.01, kP=2)
+
+
+    mahony_thread = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, mahony_filter, True, True, True,True))
     
 
-    # naieve_thread = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, naive_estimator, True, False, True,True))
-    # mahony_thread.start()
-    # naieve_thread.start()
-    times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw = simulate_and_visualize_data(csv_data, .01, mahony_filter, do_3D_vis=True, show_body_coords=True, show_extra_vectors=True, show_spatial_coords=True)
+    naieve_thread = threading.Thread(target=simulate_and_visualize_data, args=(csv_data, 0.01, naive_estimator, True, False, True,True))
+    mahony_thread.start()
+    naieve_thread.start()
+    # times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw = simulate_and_visualize_data(csv_data, .01, mahony_filter, do_3D_vis=True, show_body_coords=True, show_extra_vectors=True, show_spatial_coords=True)
     
-    plot_rotation_data(times, rotation_angles, title_suffix="(Filtered)", data_in_radians=True, convert=False)
+    # plot_rotation_data(times, rotation_angles, title_suffix="(Filtered)", data_in_radians=True, convert=False)
 
     # Plot the euler angles
     # plot_euler_angles(times, roll, pitch, yaw)

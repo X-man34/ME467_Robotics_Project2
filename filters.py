@@ -260,6 +260,8 @@ class NaiveEstimator(Estimator):
     """
     def __init__(self, dT):
         self.dT = dT
+        self.g_inertial = np.array([0, 0, 9.0665])
+        self.m0 = magnetic_north_normalized
         self.q = sm.UnitQuaternion()
         self.estimated_error = None
         self.bias = None
@@ -280,6 +282,9 @@ class NaiveEstimator(Estimator):
             sm.UnitQuaternion: Updated orientation estimate.
         """
         self.q = updateQuaternion(self.q, gyro_vector, self.dT)
+        self.v_hat_a = self.q.R.T @ self.g_inertial
+        self.v_hat_m = self.q.R.T @ self.m0
+        self.estimated_error = 1 - np.dot(normalize(accel_vector), self.v_hat_a) + 1 - np.dot(normalize(magnetic_north_normalized), self.v_hat_m)
         return self.q
     
     def set_initial_conditions(self, conditions):

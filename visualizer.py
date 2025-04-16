@@ -59,7 +59,7 @@ def get_quat_from_vec(v_spatial, negate_z=False)-> np.ndarray:
 
 
 
-def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estimator: Estimator, do_3D_vis=True, show_extra_vectors = False, show_spatial_coords=False, show_body_coords=False):
+def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estimator: Estimator, do_3D_vis=True, show_extra_vectors = False, show_spatial_coords=False, show_body_coords=False, title="Filter"):
     """
     Simulates sensor data using an estimator filter and visualizes orientation in MuJoCo.
 
@@ -209,5 +209,6 @@ def simulate_and_visualize_data(csv_data: pd.DataFrame, time_step: float, estima
                     time.sleep(sleep_time)# Sleep enough such that the real time elapsed matches the simlated time elapsed. 
                 else:
                     print(f"Warning, simulation is delayed: {-sleep_time * 1000:.2f} ms")
+
                 viewer.sync()
     return times, rotation_angles, bias_estimates, error_estimates, roll, pitch, yaw
