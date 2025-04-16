@@ -1,8 +1,5 @@
 # SLAM Filter implementations and investigations
 
-table of contents?
-audience is staici and employers, so its ok to explain what mahony is
-center all math equations? $$
 ## Table of Contents
 
 1. [Introduction](#introduction)  
@@ -117,7 +114,7 @@ We tuned out K values to be the following based on trial and error.
 
 $k_p=1, k_I=.3, k_a=.8, k_m=.2$
 
-# FIXME update this visualization after getting all the different visualization tools in play, spesificly seeing the raw data and va and vm and vm hat and va hat and the gyrosope and bias and innovation and all that. 
+# FIXME update this visualization after getting all the different visualization tools in play, specifically seeing the raw data and va and vm and vm hat and va hat and the gyroscope and bias and innovation and all that.    
 
 We visualized this motion using MuJoCo that can be seen in `fig\Fig_2-2.mp4`
 
@@ -273,11 +270,14 @@ $$
 
 ---
 
-As expected, both methods show clear orientation changes corresponding to the 180° rotations. The naïve method performs quite well in this case since the dataset is short, but it would show significantly more drift over longer periods. The TRIAD method shows occasional sharp changes in the estimated angles, likely due to sensor noise or transient disturbances in the magnetometer or accelerometer.
+The naïve method showed clear yaw, pitch, then roll movements as expected, but the TRIAD filter failed at accurately capturing this sequential motion. This behavior is clearly visible in the visualization videos:` Fig_4-6a.mp4` for the naïve method and `Fig_4-6b.mp4` for the TRIAD method.
 
-The error plots also reflect this behavior. In both cases, error peaks during rapid motion, when sensor readings become more volatile.
+#### (e)
+
+Our mahony filter has problems with drifting when the IMU is still and keeping up with the phone when its flipped around quickly. The TRIAD filter on the other hand works best when nothing is moving. Over long datasets, despite being grounded with the gravity and north vector's the Mahony filters drift seems to do it a disservice while the TRIAD filter doesn't suffer from this issue. However when it comes to fast movements, the TRIAD filter almost looks random, it jerks all over and is basically useless. The dataset you provided has a lot of motion in it and the Mahony filter is probably the best for it, but if the phone were in a car on a long road trip, or even a normal drive, the TRIAD filter would probably be the best. The characteristics of the dataset of a phone in a car would be gravity and magnetometer vectors that hardly change but all sorts of small random angular velocities. This would mess up the mahony filter and it would probably be jittery, while the TRIAD filter with its consistent landmarks would likely be more stable. The Charlie filter would likely excel in all these scenarios because in the car, the omega values would be small and thus it always use triad, but maybe if you were really accelerating, or hit a bump etc, it would switch to mahony. But with the provided data, it uses mahony for almost the whole time, but at beginning and end it uses TRIAD. It also sort of grounds the estimate midway for a few time steps during the fast (relatively fast, compared to sitting on the table.) movement when the phone slows down or switches direction.  
 
 
-#### (e) Bonus
+After writing the prior paragraph, Charles went out in his car and took some data of normal driving with the phone taped to the dashboard. He did a bunch of turns and hit a bunch of bumps and ended in the same place that he started. We then pitted different filters against each other in `TheOctagon.py`. The results: all the predictions were wrong. The mahony filter beat everything by a long shot and ended in the same spot. The triad filter just twitched and didn't respond to any of the mag data, so it was probably interfered with. The Naïve filter just Naïvely spun around and got lost. 
 
-Our mahony filter has problems with drifting when the IMU is still and keeping up with the phone when its flipped around quickly. The TRIAD filter on the other hand works best when nothing is moving. Over long datasets, despite being grounded with the gravity and north vector's the Mahony filters drift seems to do it a disservice while the TRIAD filter doesn't suffer from this issue. However when it comes to fast movements, the TRIAD filter almost looks random, it jerks all over and is basically useless. The dataset you provided has a lot of motion in it and the Mahony filter is probably the best for it, but if the phone were in a car on a long road trip, or even a normal drive, the TRIAD filter would probably be the best. The characteristics of the dataset of a phone in a car would be gravity and magnetometer vectors that hardly change but all sorts of small random angular velocities. This would mess up the mahony filter and it would probably be jittery, while the TRIAD filter with its consistent landmarks would likely be more stable. The Charlie filter would likly excel in all these scenarios because in the car, the omega values would be small and thus it always use triad, but maybe if you were really accelerating, or hit a bump etc, it would switch to mahony. But with the provided data, it uses mahony for almost the whole time, but at beginning and end it uses TRIAD. It also sort of grounds the estimate midway for a few time steps during the fast (relatively fast, compared to sitting on the table.) movement when the phone slows down or switches direction.  
+
+
