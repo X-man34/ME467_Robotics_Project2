@@ -3,7 +3,7 @@ from spatialmath.base import *
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use("TkAgg")
+# matplotlib.use("TkAgg")
 import filters
 
 def step_animation(quaternion, deltaT):

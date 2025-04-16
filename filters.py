@@ -4,6 +4,8 @@ import spatialmath as sm
 from spatialmath.base import skew, tr2angvec
 from abc import ABC, abstractmethod
 
+#Following the East North Vertical convention from WWN-2025 at 43.603600◦ N and 116.208710◦ W, elevation 835m, normalized magnetic north is:
+magnetic_north_normalized = np.array([0.08635072, 0.3812236, -0.92044126])
 
 def OMEGA(omega: np.ndarray)-> np.ndarray:
     """
@@ -144,20 +146,21 @@ class MahonyFilter(Estimator):
     Kwargs:
         init_conditions: a tuple with the initial accel and mag data in the body frame of the form (initial_acceleration_vector, initial_north_vector). It not passed [0 0 1] and the true m value are used. 
     """
-    def __init__(self, dT, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=.5, true_m=np.array([0.087117, 0.37923, -0.92119]), **kwargs):
+    def __init__(self, dT, kp=1.0, kI=0.3, ka_nominal=1.0, km_nominal=.5, **kwargs):
+        global magnetic_north_normalized
         self.g_inertial = np.array([0, 0, 9.0665])
         self.dT = dT
         self.kp = kp
         self.kI = kI
         self.ka_nominal = ka_nominal
         self.km_nominal = km_nominal
-        self.m0 = true_m  # True magnetic field vector (inertial frame)
+        self.m0 = magnetic_north_normalized  # True magnetic field vector (inertial frame)
         # These are the default initial conditions and for optimal filter performance they should be set later with set_initial_conditions. 
         self.q = sm.UnitQuaternion()  # Initial orientation quaternion
         self.v_hat_a = np.array([0,0,1])
         self.v_hat_m = self.m0
         self.bias = np.zeros(3)  # Initial gyroscope bias
-        self.m_corrected = true_m# expose for graphing. 
+        self.m_corrected = magnetic_north_normalized# expose for graphing. 
         self.estimated_error = 0
         self.omega_mes = 0
 
@@ -276,16 +279,17 @@ class TriadEstimator(Estimator):
 
     Custom estimator using triad somehow. 
     """
-    def __init__(self, dT,kP=1.0, true_m=np.array([0.087117, 0.37923, -0.92119]), **kwargs):
+    def __init__(self, dT,kP=1.0, **kwargs):
+        global magnetic_north_normalized
         self.g_inertial = np.array([0, 0, 9.0665])
         self.dT = dT
         self.kp = kP
-        self.m0 = true_m  # True magnetic field vector (inertial frame)
+        self.m0 = magnetic_north_normalized  # True magnetic field vector (inertial frame)
         self.q = sm.UnitQuaternion()  # Initial orientation quaternion
         self.v_hat_a = np.array([0,0,1])
         self.v_hat_m = self.m0
         
-        self.m_corrected = true_m# expose for graphing. 
+        self.m_corrected = magnetic_north_normalized# expose for graphing. 
         self.estimated_error = 0
         self.omega_mes = 0
         self.bias = np.zeros(3)  # Initial gyroscope bias
