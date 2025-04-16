@@ -217,9 +217,46 @@ A video visualization is available in `Fig_4-3.mp4`.
 The TRIAD estimate tracks the general shape of the motion accurately but is more sensitive to noise in the magnetometer and accelerometer. Sudden spikes or jitter  appear in the plot if either sensor experiences interference or measurement error. The method remains stable over time due to the lack of integration drift.
 
 
-#### (d) Estimated Rotation Angle – TRIAD Method
+#### (d) Roll, Pitch, Yaw and Error Estimation — Naïve and TRIAD Methods
 
-We are using the same file from question 3 earlier,  `charlie_phone_540.csv` as the input dataset to the filter. In this dataset, the phone was rotated a total of 540 degrees: first 180° about the phone’s z-axis, then 180° about the y-axis, and finally 180° about the x-axis. A video showing the filter’s visualization of this sequence is included in `fig/Fig_3-1.mp4`.
+We used the same dataset from Question 3, `charlie_phone_540.csv`, as the input for both the naïve estimator and the TRIAD method. In this dataset, the phone undergoes a sequence of three 180° rotations: first about the phone’s z-axis (yaw), then about the y-axis (pitch), and finally about the x-axis (roll).
+
+Below are the roll, pitch, and yaw angles computed from each estimator, as well as the corresponding error estimates using the error formula:
+
+$$
+E_{\text{mes}} = 1 - \mathbf{v}_a \cdot \hat{\mathbf{v}}_a + 1 - \mathbf{v}_m \cdot \hat{\mathbf{v}}_m
+$$
+
+
+---
+
+##### Roll, Pitch, Yaw vs. Time — Naïve Gyroscope Integration Method
+
+![Figure 4-5a](fig/Fig_4-5a.png)  
+*Fig 4-5a: Roll, Pitch, Yaw vs. Time using the naïve estimator.*
+
+##### Estimated Error vs. Time — Naïve Gyroscope Integration Method
+
+![Figure 4-5b](fig/Fig_4-5b.png)  
+*Fig 4-5b: Estimated error vs. time using the naïve estimator.*
+
+---
+
+##### Roll, Pitch, Yaw vs. Time — TRIAD Method
+
+![Figure 4-5c](fig/Fig_4-5c.png)  
+*Fig 4-5c: Roll, Pitch, Yaw vs. Time using the TRIAD method.*
+
+##### Estimated Error vs. Time — TRIAD Method
+
+![Figure 4-5d](fig/Fig_4-5d.png)  
+*Fig 4-5d: Estimated error vs. time using the TRIAD method.*
+
+---
+
+As expected, both methods show clear orientation changes corresponding to the 180° rotations. The naïve method performs quite well in this case since the dataset is short, but it would show significantly more drift over longer periods. The TRIAD method shows occasional sharp changes in the estimated angles, likely due to sensor noise or transient disturbances in the magnetometer or accelerometer.
+
+The error plots also reflect this behavior. In both cases, error peaks during rapid motion, when sensor readings become more volatile.
 
 
 #### (e)
