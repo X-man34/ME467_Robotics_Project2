@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from Question2 import *
 from filters import *
 from Question3 import plot_error_estimates, plot_euler_angles
-
+from pathlib import Path
 
 
 if __name__ == "__main__":
