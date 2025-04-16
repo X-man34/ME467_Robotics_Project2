@@ -1,8 +1,27 @@
-# Title
+# SLAM Filter implementations and investigations
 
 table of contents?
 audience is staici and employers, so its ok to explain what mahony is
 center all math equations? $$
+## Table of Contents
+
+1. [Introduction](#introduction)  
+2. [Estimators](#estimators)  
+   2.1. [Naïve Gyroscope Integration (Dead Reckoning)](#naïve-gyroscope-integration-dead-reckoning)  
+   2.2. [Mahony Filter](#mahony-filter)  
+   2.3. [TRIAD Method](#triad-method)  
+   2.4. [Caleb's Custom Filter](#calebs-custom-filter)  
+   2.5. [Charles' Custom Filter](#charles-custom-filter)  
+3. [Question 1: Naïve Gyroscope Integration](#question-1)  
+4. [Question 2: Mahony Filter Implementation](#question-2-mahony-filter-implementation)  
+5. [Question 3: Mahony Filter on Real Data](#question-3)  
+6. [Question 4: Naïve, TRIAD, and Comparisons](#question-4)  
+   6.1. [(a) Naïve Estimator](#a-naïve-gyroscope-integration-method)  
+   6.2. [(b) TRIAD Method](#b-triad-tri-axial-attitude-determination-method)  
+   6.3. [(c) Rotation Angle Comparison](#c-naïve-gyroscope-integration-method-and-triad-method)  
+   6.4. [(d) RPY and Error Estimation](#d-roll-pitch-yaw-and-error-estimation--naïve-and-triad-methods)  
+   6.5. [(e) Bonus](#e-bonus)
+
 ## Introduction
 In this project, we will be implementing three different orientation algorithms to estimate the orientation of a  phone over time. A naïve gyroscope integration (dead reckoning) algorithm is used in Question 1 and Question 4a. The Mahony filter is used in Questions 2 and 3, and serves as the baseline for comparison in Question 4. Finally, the TRIAD method is introduced in Question 4b and compared against the other methods in Questions 4c and 4d.
 
@@ -259,8 +278,6 @@ As expected, both methods show clear orientation changes corresponding to the 18
 The error plots also reflect this behavior. In both cases, error peaks during rapid motion, when sensor readings become more volatile.
 
 
-#### (e)
+#### (e) Bonus
 
-
-
-
+Our mahony filter has problems with drifting when the IMU is still and keeping up with the phone when its flipped around quickly. The TRIAD filter on the other hand works best when nothing is moving. Over long datasets, despite being grounded with the gravity and north vector's the Mahony filters drift seems to do it a disservice while the TRIAD filter doesn't suffer from this issue. However when it comes to fast movements, the TRIAD filter almost looks random, it jerks all over and is basically useless. The dataset you provided has a lot of motion in it and the Mahony filter is probably the best for it, but if the phone were in a car on a long road trip, or even a normal drive, the TRIAD filter would probably be the best. The characteristics of the dataset of a phone in a car would be gravity and magnetometer vectors that hardly change but all sorts of small random angular velocities. This would mess up the mahony filter and it would probably be jittery, while the TRIAD filter with its consistent landmarks would likely be more stable. The Charlie filter would likly excel in all these scenarios because in the car, the omega values would be small and thus it always use triad, but maybe if you were really accelerating, or hit a bump etc, it would switch to mahony. But with the provided data, it uses mahony for almost the whole time, but at beginning and end it uses TRIAD. It also sort of grounds the estimate midway for a few time steps during the fast (relatively fast, compared to sitting on the table.) movement when the phone slows down or switches direction.  
