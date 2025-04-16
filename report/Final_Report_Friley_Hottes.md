@@ -1,4 +1,8 @@
-# SLAM Filter implementations and investigations
+# Orientation Estimation using IMU data
+
+### Authors
+- Caleb Hottes
+- Charles Friley
 
 ## Table of Contents
 
@@ -20,9 +24,9 @@
    6.5. [(e) Bonus](#e-bonus)
 
 ## Introduction
-In this project, we will be implementing three different orientation algorithms to estimate the orientation of a  phone over time. A naïve gyroscope integration (dead reckoning) algorithm is used in Question 1 and Question 4a. The Mahony filter is used in Questions 2 and 3, and serves as the baseline for comparison in Question 4. Finally, the TRIAD method is introduced in Question 4b and compared against the other methods in Questions 4c and 4d.
+In this project, we will be implementing three different orientation algorithms to estimate the orientation of a phone over time. A naïve gyroscope integration (dead reckoning) algorithm is used in Question 1 and Question 4a. The Mahony filter is used in Questions 2 and 3, and serves as the baseline for comparison in Question 4. Finally, the TRIAD method is introduced in Question 4b and compared against the other methods in Questions 4c and 4d.
 
-The framework of this codebase allows for the easy creation of different filters termed "estimators". In `filters.py` there is an abstract class called `Estimator` which can be extended to implement various filters and estimators. There are 5 implementations:
+The framework of this codebase allows for the easy creation of different filters termed "estimators". In `filters.py` there is an abstract class called `Estimator` which can be extended to implement various filters and estimators. Because of the code structure, we decided to make some of our own filters as well, so there are 5 implementations:
 - Naïve Estimator (required) 
 - Mahony Filter (required)
 - TRIAD (Tri-Axial Attitude Determination) Estimator (required)
@@ -31,8 +35,7 @@ The framework of this codebase allows for the easy creation of different filters
 
 These subclasses of `Estimator` are then initialized and passed into the `simulate_and_visualize_data` method in `visualizer`. This project structure allows for the rapid creation and iteration of different filters. Additionally 3D visualization techniques along with 2D plots were used extensively in the debugging process. 
 
-
-## Estimators
+## Overview of Estimators
 
 ### Naïve Gyroscope Integration (Dead Reckoning)
 
@@ -47,7 +50,10 @@ The Mahony filter is a nonlinear complementary filter that combines gyroscope in
 The TRIAD (Tri-Axial Attitude Determination) method estimates orientation using two reference vectors: gravity and magnetic north. It constructs two orthonormal frames — one from known inertial vectors and one from measured body-frame vectors — and computes the rotation matrix that aligns them. Unlike the other two methods, TRIAD is algebraic and doesn't rely on time integration, which means it gives an immediate estimate of orientation at each time step, but doesn’t track changes over time or handle gyroscope data.
 
 ### Caleb's Custom Filter
-One of the main shortcomings (yet at the same time, its appeal) of the pure TRIAD method is its non-time dependence. That is, if you just provide the data at a single instant in time, I can provide you the rotation matrix. However this causes the estimator to be jumpy and skip all around when that is obviously not how real motion works. Caleb's filter attempts to solve this problem by using many aspects of the Mahony filter. The final result is the same as the Mahony filter, with the magnetic correction, quaternion update, and estimation of gravity and north vectors all being the same, but the innovation term `omega_mes` is calculated uniquely. A rotation matrix is created using the TRIAD function. 
+One of the main shortcomings (yet at the same time, its appeal) of the pure TRIAD method is its non-time dependence. That is, if you just provide the data at a single instant in time, TRIAD can provide you the rotation matrix. However this causes the estimator to be jumpy, and skip all around when that is obviously not how real motion works. Caleb's filter attempts to solve this problem by using many aspects of the Mahony filter, with one key difference. The final result has the same  magnetic correction, quaternion update, and estimation of gravity and north vectors as the Mahony Filter, but the innovation term `omega_mes` is calculated uniquely. 
+
+`omega_me is calculated as follows` 
+A rotation matrix is created using the TRIAD function. 
 We can use this matrix to write an equation:
 
 $$\hat{R} = AR_{Tr}$$
@@ -62,9 +68,6 @@ This $\omega_{mes}$ is used just like it is in the Mahony filter. This filter su
 
 ### Charles' Custom Filter
 Charles' filter is a variant of Caleb's filter and combines the Mahony and Mahony-TRIAD filters into a hybrid. The goal is to use the best filter for the task at hand. TRIAD is used then things are relatively still and Mahony when there is movement. This is accomplished by computing the magnitude of the angular velocity data and comparing it to a predefined threshold like .1. If the value is greater than that, a plain Mahony filter is used but if its lower then the Modified Mahony Filter is used, utilizing the TRIAD method to compute the innovation as described above. This has good results and works as intended. 
-
-
-It is important however to note that all these suppositions about the relative accuracy of different filters are dependent on our visualization code and subjective comparison of what we see in the visualization versus what we remember doing. There is a potential issue with initial conditions and differing coordinate systems in the visualizer which could significancy impact the results. This may be addressed, time allowing. 
 
 
 ## Question 1
@@ -112,9 +115,7 @@ In question 2 we implement a Mahony filter to estimate a phone's orientation ove
 
 We tuned out K values to be the following based on trial and error.
 
-$k_p=1, k_I=.3, k_a=.8, k_m=.2$
-
-# FIXME update this visualization after getting all the different visualization tools in play, specifically seeing the raw data and va and vm and vm hat and va hat and the gyroscope and bias and innovation and all that.    
+$k_p=1, k_I=.3, k_a=.8, k_m=.2$ 
 
 We visualized this motion using MuJoCo that can be seen in `fig\Fig_2-2.mp4`
 
@@ -126,7 +127,6 @@ Figures 2-1a and 2-1b below show the rotation angle over time in radians and deg
 
 Over the course of the motion, the phone rotated a total of approximately 8,572 radians, or 491,165 degrees. This total includes all incremental rotations.
 
-# FIXME update these after final check of code
 
 ![Figure 2-1 Rads](fig/Fig_2-1a_(rad).png)
 *Fig 2-1a: Mahony Estimated rotation angle over time (radians)*
